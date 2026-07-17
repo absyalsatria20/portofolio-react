@@ -23,7 +23,7 @@ function App() {
         style={{ 
           height: '120vh',     // Sengaja dibuat lebih tinggi dari layar
           top: '-20vh',        // Sisa tingginya disembunyikan di atas
-          backgroundImage: `url('/https://res.cloudinary.com/vkyl7elo/image/upload/v1784278402/bg-abstract5_k45bqz.jpg')`,
+          backgroundImage: `url('https://res.cloudinary.com/vkyl7elo/image/upload/v1784278402/bg-abstract5_k45bqz.jpg')`,
           filter: 'blur(10px)',
           y: yBg               // Didorong turun perlahan oleh Framer Motion saat di-scroll
         }}
