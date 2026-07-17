@@ -235,7 +235,7 @@ const Portfolio = () => {
                                                 </div>
                                             </>
                                         )}
-                                        <div className="overlay absolute inset-0 bg-gradient-to-t from-white/80 via-white/20 to-transparent flex flex-col justify-end p-6 pointer-events-none z-10 opacity-0 hover:group-hover:opacity-100 transition-opacity duration-500"></div>
+                                        <div className="overlay absolute inset-0 bg-gradient-to-t from-white/80 via-white/20 to-transparent flex flex-col justify-end p-6 pointer-events-none z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                                     </div>
                                 ))}
                             </div>
