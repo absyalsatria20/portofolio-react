@@ -15,7 +15,8 @@ function App() {
   const yBg = useTransform(scrollYProgress, [0, 1], ['0vh', '20vh']);
 
   return (
-    <div className="relative min-h-screen text-slate-800 font-sans selection:bg-indigo-200 bg-slate-50 overflow-hidden">
+    // Memakai overflow-x-hidden agar layar HP tidak memotong elemen ke samping
+    <div className="relative min-h-screen text-slate-800 font-sans selection:bg-indigo-200 bg-slate-50 overflow-x-hidden">
       
       {/* --- BACKGROUND PARALLAX (Ikut Turun) --- */}
       <motion.div 
@@ -24,7 +25,7 @@ function App() {
           height: '120vh',     // Sengaja dibuat lebih tinggi dari layar
           top: '-20vh',        // Sisa tingginya disembunyikan di atas
           backgroundImage: `url('https://res.cloudinary.com/vkyl7elo/image/upload/v1784278402/bg-abstract5_k45bqz.jpg')`,
-          filter: 'blur(10px)',
+          // filter blur raksasa dihapus agar GPU HP tidak ngos-ngosan
           y: yBg               // Didorong turun perlahan oleh Framer Motion saat di-scroll
         }}
       >
