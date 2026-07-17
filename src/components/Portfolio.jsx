@@ -27,11 +27,9 @@ const Portfolio = () => {
             });
     }, []);
 
-    // Fungsi Menghapus Data
     const handleDelete = async (e, id) => {
         e.stopPropagation();
         const pin = window.prompt("⚠️ Masukkan PIN Rahasia untuk MENGHAPUS project ini:");
-        
         if (pin !== null && pin !== "") {
             try {
                 const response = await fetch(`https://portofolio-backend-production-98e1.up.railway.app/api/projects/${id}`, {
@@ -39,7 +37,6 @@ const Portfolio = () => {
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                     body: JSON.stringify({ secret_pin: pin })
                 });
-
                 const result = await response.json();
                 if (result.success) {
                     alert("✅ " + result.message);
@@ -54,23 +51,19 @@ const Portfolio = () => {
         }
     };
 
-    // Fungsi Menyimpan susunan akhir Drag & Drop
     const handleSaveOrder = async () => {
         const pin = window.prompt("⚠️ Masukkan PIN Rahasia untuk MENYIMPAN susunan layout baru:");
-        
         if (pin !== null && pin !== "") {
             const reorderedItems = portfolioData.map((item, index) => ({
                 id: item.id,
                 sort_order: index + 1
             }));
-
             try {
                 const response = await fetch('https://portofolio-backend-production-98e1.up.railway.app/api/projects/reorder', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                     body: JSON.stringify({ secret_pin: pin, items: reorderedItems })
                 });
-
                 const result = await response.json();
                 if (result.success) {
                     alert("✅ " + result.message);
@@ -86,7 +79,6 @@ const Portfolio = () => {
         }
     };
 
-    // Toggle Mode Edit
     const toggleEditMode = () => {
         setIsEditMode(!isEditMode);
         if (!isEditMode && activeFilter !== 'all') {
@@ -98,9 +90,36 @@ const Portfolio = () => {
         activeFilter === 'all' || item.category === activeFilter
     );
 
+    // ========================================================
+    // KOMPONEN KARTU
+    // ========================================================
+    const renderCard = (item) => (
+        <div 
+            key={item.id} 
+            onClick={() => setSelectedItem(item)} 
+            className="group relative overflow-hidden rounded-3xl cursor-pointer bg-white/40 backdrop-blur-md border border-white/60 shadow-sm hover:shadow-xl transition-all duration-300 w-full"
+        >
+            {item.type === 'image' ? (
+                <img src={item.src} className="block w-full h-auto transition-transform duration-700 group-hover:scale-105" alt="Portfolio" />
+            ) : (
+                <>
+                    <video src={`${item.src}#t=${item.thumbTime || '0.1'}`} preload="metadata" playsInline className="block w-full h-auto object-cover pointer-events-none transition-transform duration-700 group-hover:scale-105"></video>
+                    <div className="absolute inset-0 flex items-center justify-center z-20 transition-transform duration-500 group-hover:scale-105 pointer-events-none">
+                        <div className="w-[20%] min-w-[48px] max-w-[68px] aspect-square rounded-full bg-white/30 backdrop-blur-xl border border-white/50 flex items-center justify-center text-indigo-600 shadow-sm transition-all duration-300 group-hover:scale-110 group-hover:bg-white/50 group-hover:border-white/70">
+                            <i className="ph-fill ph-play text-xl md:text-2xl ml-1 drop-shadow-sm"></i>
+                        </div>
+                    </div>
+                </>
+            )}
+            <div className="overlay absolute inset-0 bg-gradient-to-t from-white/80 via-white/20 to-transparent flex flex-col justify-end p-6 pointer-events-none z-10 opacity-0 hover:group-hover:opacity-100 transition-opacity duration-500"></div>
+        </div>
+    );
+
     return (
         <>
             <section id="karya" className="py-24 relative z-20 px-6 md:px-12 lg:px-16">
+                
+                {/* --- BACKGROUND GARIS KOTAK-KOTAK DIKEMBALIKAN --- */}
                 <div className="absolute top-0 right-0 w-[500px] h-[600px] bg-[linear-gradient(to_right,#cbd5e1_1px,transparent_1px),linear-gradient(to_bottom,#cbd5e1_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_100%_100%_at_100%_0%,#000_60%,transparent_100%)] opacity-50 z-0 pointer-events-none"></div>
                 <div className="absolute bottom-0 left-0 w-[500px] h-[600px] bg-[linear-gradient(to_right,#cbd5e1_1px,transparent_1px),linear-gradient(to_bottom,#cbd5e1_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_100%_100%_at_0%_100%,#000_60%,transparent_100%)] opacity-50 z-0 pointer-events-none"></div>
 
@@ -116,16 +135,11 @@ const Portfolio = () => {
                             
                             <AdminPanel onProjectAdded={() => window.location.reload()} />
 
-                            {/* TOMBOL TOGGLE EDIT MODE */}
-                            <button 
-                                onClick={toggleEditMode}
-                                className={`px-6 py-3 rounded-full text-sm font-bold transition-all duration-300 hover:scale-105 active:scale-95 border-2 flex items-center gap-2 ml-2 ${isEditMode ? 'border-amber-500 bg-amber-500 text-white shadow-md shadow-amber-500/30' : 'border-slate-300 bg-transparent text-slate-600 hover:bg-slate-100'}`}
-                            >
+                            <button onClick={toggleEditMode} className={`px-6 py-3 rounded-full text-sm font-bold transition-all duration-300 hover:scale-105 active:scale-95 border-2 flex items-center gap-2 ml-2 ${isEditMode ? 'border-amber-500 bg-amber-500 text-white shadow-md shadow-amber-500/30' : 'border-slate-300 bg-transparent text-slate-600 hover:bg-slate-100'}`}>
                                 <i className={`ph-bold ${isEditMode ? 'ph-x' : 'ph-arrows-out-cardinal'} text-lg`}></i>
                                 <span>{isEditMode ? 'Tutup Edit' : 'Edit Layout'}</span>
                             </button>
 
-                            {/* TOMBOL SAVE LAYOUT */}
                             <AnimatePresence>
                                 {isOrderChanged && isEditMode && (
                                     <motion.button 
@@ -146,65 +160,23 @@ const Portfolio = () => {
                             </div>
                         ) : isEditMode && activeFilter === 'all' ? (
                             
-                            // ==========================================
-                            // TAMPILAN DRAG AND DROP (LIST VERTIKAL)
-                            // ==========================================
-                            <Reorder.Group 
-                                axis="y"
-                                values={portfolioData} 
-                                onReorder={(newOrder) => {
-                                    setPortfolioData(newOrder);
-                                    setIsOrderChanged(true);
-                                }}
-                                className="flex flex-col gap-3 md:gap-4 max-w-3xl mx-auto w-full pb-10"
-                            >
+                            <Reorder.Group axis="y" values={portfolioData} onReorder={(newOrder) => { setPortfolioData(newOrder); setIsOrderChanged(true); }} className="flex flex-col gap-3 md:gap-4 max-w-3xl mx-auto w-full pb-10">
                                 <div className="bg-amber-100 text-amber-700 px-4 py-3 rounded-xl md:rounded-2xl mb-2 text-xs md:text-sm font-bold border border-amber-200 flex items-center gap-3">
                                     <i className="ph-bold ph-info text-lg md:text-xl shrink-0"></i>
                                     <span>Tahan dan seret baris ke atas/bawah untuk mengubah urutan.</span>
                                 </div>
-
                                 {portfolioData.map((item, index) => (
-                                    <Reorder.Item 
-                                        key={item.id} 
-                                        value={item}
-                                        className="group relative overflow-hidden rounded-xl md:rounded-2xl bg-white/80 backdrop-blur-md border border-slate-200 shadow-sm hover:shadow-lg cursor-grab active:cursor-grabbing flex items-center p-2 md:p-3 gap-2 md:gap-4 transition-colors hover:border-indigo-400 hover:bg-white"
-                                    >
-                                        {/* Ikon Drag */}
-                                        <div className="text-slate-400 pl-1 md:pl-2 shrink-0">
-                                            <i className="ph-bold ph-dots-six-vertical text-xl md:text-3xl"></i>
-                                        </div>
-
-                                        {/* Nomer Urut */}
-                                        <div className="font-black text-lg md:text-2xl text-slate-300 w-5 md:w-8 text-center shrink-0">
-                                            {index + 1}
-                                        </div>
-
-                                        {/* Thumbnail Kecil (Diperkecil di HP) */}
+                                    <Reorder.Item key={item.id} value={item} className="group relative overflow-hidden rounded-xl md:rounded-2xl bg-white/80 backdrop-blur-md border border-slate-200 shadow-sm hover:shadow-lg cursor-grab active:cursor-grabbing flex items-center p-2 md:p-3 gap-2 md:gap-4 transition-colors hover:border-indigo-400 hover:bg-white">
+                                        <div className="text-slate-400 pl-1 md:pl-2 shrink-0"><i className="ph-bold ph-dots-six-vertical text-xl md:text-3xl"></i></div>
+                                        <div className="font-black text-lg md:text-2xl text-slate-300 w-5 md:w-8 text-center shrink-0">{index + 1}</div>
                                         <div className="w-16 h-12 md:w-28 md:h-20 shrink-0 rounded-lg md:rounded-xl overflow-hidden bg-slate-900 shadow-inner">
-                                            {item.type === 'image' ? (
-                                                <img src={item.src} className="w-full h-full object-cover opacity-90" alt="Thumb" />
-                                            ) : (
-                                                <video src={`${item.src}#t=${item.thumbTime || '0.1'}`} className="w-full h-full object-cover opacity-90 pointer-events-none"></video>
-                                            )}
+                                            {item.type === 'image' ? ( <img src={item.src} className="w-full h-full object-cover opacity-90" alt="Thumb" /> ) : ( <video src={`${item.src}#t=${item.thumbTime || '0.1'}`} className="w-full h-full object-cover opacity-90 pointer-events-none"></video> )}
                                         </div>
-
-                                        {/* Info Kategori (min-w-0 agar teks panjang bisa dipotong "...") */}
                                         <div className="flex-1 min-w-0">
-                                            <span className="text-[9px] md:text-xs font-bold uppercase tracking-wider text-indigo-500 bg-indigo-50 px-2 py-0.5 md:py-1 rounded-md inline-block mb-1">
-                                                {item.category}
-                                            </span>
-                                            <div className="text-slate-400 text-[10px] md:text-xs truncate w-full">
-                                                {item.src}
-                                            </div>
+                                            <span className="text-[9px] md:text-xs font-bold uppercase tracking-wider text-indigo-500 bg-indigo-50 px-2 py-0.5 md:py-1 rounded-md inline-block mb-1">{item.category}</span>
+                                            <div className="text-slate-400 text-[10px] md:text-xs truncate w-full">{item.src}</div>
                                         </div>
-
-                                        {/* TOMBOL HAPUS (Diperkecil sedikit di HP) */}
-                                        <button 
-                                            onPointerDown={(e) => e.stopPropagation()} 
-                                            onClick={(e) => handleDelete(e, item.id)} 
-                                            className="bg-rose-50 hover:bg-rose-500 text-rose-500 hover:text-white w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-full transition-colors shrink-0 border border-rose-200 hover:border-rose-500"
-                                            title="Hapus Project"
-                                        >
+                                        <button onPointerDown={(e) => e.stopPropagation()} onClick={(e) => handleDelete(e, item.id)} className="bg-rose-50 hover:bg-rose-500 text-rose-500 hover:text-white w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-full transition-colors shrink-0 border border-rose-200 hover:border-rose-500" title="Hapus Project">
                                             <i className="ph-bold ph-trash text-base md:text-xl"></i>
                                         </button>
                                     </Reorder.Item>
@@ -213,31 +185,32 @@ const Portfolio = () => {
 
                         ) : (
 
-                            // ==========================================
-                            // TAMPILAN NORMAL GALERI 
-                            // ==========================================
-                            <div className="columns-2 lg:columns-3 gap-4 md:gap-6">
-                                {filteredItems.map((item) => (
-                                    <div 
-                                        key={item.id} 
-                                        onClick={() => setSelectedItem(item)} 
-                                        className="portfolio-item group relative overflow-hidden rounded-3xl cursor-pointer bg-white/40 backdrop-blur-md border border-white/60 shadow-[0_8px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_15px_40px_rgba(99,102,241,0.15)] break-inside-avoid inline-block w-full mb-4 md:mb-6 transition-all"
-                                    >
-                                        {item.type === 'image' ? (
-                                            <img src={item.src} className="w-full h-auto transition-transform duration-700 group-hover:scale-105" alt="Portfolio" />
-                                        ) : (
-                                            <>
-                                                <video src={`${item.src}#t=${item.thumbTime || '0.1'}`} preload="metadata" playsInline className="w-full h-auto object-cover pointer-events-none transition-transform duration-700 group-hover:scale-105"></video>
-                                                <div className="absolute inset-0 flex items-center justify-center z-20 transition-transform duration-500 group-hover:scale-105 pointer-events-none">
-                                                    <div className="w-[20%] min-w-[48px] max-w-[68px] aspect-square rounded-full bg-white/30 backdrop-blur-xl border border-white/50 flex items-center justify-center text-indigo-600 shadow-[0_8px_32px_rgba(255,255,255,0.2)] transition-all duration-300 group-hover:scale-110 group-hover:bg-white/50 group-hover:border-white/70 group-hover:shadow-[0_8px_32px_rgba(255,255,255,0.4)]">
-                                                        <i className="ph-fill ph-play text-xl md:text-2xl ml-1 drop-shadow-sm"></i>
-                                                    </div>
-                                                </div>
-                                            </>
-                                        )}
-                                        <div className="overlay absolute inset-0 bg-gradient-to-t from-white/80 via-white/20 to-transparent flex flex-col justify-end p-6 pointer-events-none z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                            // ========================================================
+                            // TAMPILAN NORMAL: HYBRID GRID + MASONRY (Anti-Bug)
+                            // ========================================================
+                            <div className="w-full">
+                                {/* LAYOUT MOBILE: Grid 2 Kolom berisi Flex vertikal */}
+                                <div className="grid grid-cols-2 gap-4 lg:hidden items-start">
+                                    <div className="flex flex-col gap-4">
+                                        {filteredItems.filter((_, i) => i % 2 === 0).map(item => renderCard(item))}
                                     </div>
-                                ))}
+                                    <div className="flex flex-col gap-4">
+                                        {filteredItems.filter((_, i) => i % 2 !== 0).map(item => renderCard(item))}
+                                    </div>
+                                </div>
+
+                                {/* LAYOUT DESKTOP: Grid 3 Kolom berisi Flex vertikal */}
+                                <div className="hidden lg:grid grid-cols-3 gap-6 items-start">
+                                    <div className="flex flex-col gap-6">
+                                        {filteredItems.filter((_, i) => i % 3 === 0).map(item => renderCard(item))}
+                                    </div>
+                                    <div className="flex flex-col gap-6">
+                                        {filteredItems.filter((_, i) => i % 3 === 1).map(item => renderCard(item))}
+                                    </div>
+                                    <div className="flex flex-col gap-6">
+                                        {filteredItems.filter((_, i) => i % 3 === 2).map(item => renderCard(item))}
+                                    </div>
+                                </div>
                             </div>
 
                         )}
