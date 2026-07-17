@@ -214,31 +214,34 @@ const Portfolio = () => {
                         ) : (
 
                             // ==========================================
-                            // TAMPILAN NORMAL GALERI 
-                            // ==========================================
-                            <div className="columns-2 lg:columns-3 gap-4 md:gap-6">
-                                {filteredItems.map((item) => (
-                                    <div 
-                                        key={item.id} 
-                                        onClick={() => setSelectedItem(item)} 
-                                        className="portfolio-item group relative overflow-hidden rounded-3xl cursor-pointer bg-white/40 backdrop-blur-md border border-white/60 shadow-[0_8px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_15px_40px_rgba(99,102,241,0.15)] break-inside-avoid inline-block w-full mb-4 md:mb-6 transition-all"
-                                    >
-                                        {item.type === 'image' ? (
-                                            <img src={item.src} className="w-full h-auto transition-transform duration-700 group-hover:scale-105" alt="Portfolio" />
-                                        ) : (
-                                            <>
-                                                <video src={`${item.src}#t=${item.thumbTime || '0.1'}`} preload="metadata" playsInline className="w-full h-auto object-cover pointer-events-none transition-transform duration-700 group-hover:scale-105"></video>
-                                                <div className="absolute inset-0 flex items-center justify-center z-20 transition-transform duration-500 group-hover:scale-105 pointer-events-none">
-                                                    <div className="w-[20%] min-w-[48px] max-w-[68px] aspect-square rounded-full bg-white/30 backdrop-blur-xl border border-white/50 flex items-center justify-center text-indigo-600 shadow-[0_8px_32px_rgba(255,255,255,0.2)] transition-all duration-300 group-hover:scale-110 group-hover:bg-white/50 group-hover:border-white/70 group-hover:shadow-[0_8px_32px_rgba(255,255,255,0.4)]">
-                                                        <i className="ph-fill ph-play text-xl md:text-2xl ml-1 drop-shadow-sm"></i>
-                                                    </div>
-                                                </div>
-                                            </>
-                                        )}
-                                        <div className="overlay absolute inset-0 bg-gradient-to-t from-white/80 via-white/20 to-transparent flex flex-col justify-end p-6 pointer-events-none z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                                    </div>
-                                ))}
-                            </div>
+// TAMPILAN NORMAL GALERI 
+// ==========================================
+<div className="columns-2 lg:columns-3 gap-4 md:gap-6">
+    {filteredItems.map((item) => (
+        <div 
+            key={item.id} 
+            onClick={() => setSelectedItem(item)} 
+            // PERBAIKAN 1: Tambahkan block, transform-gpu, dan will-change-transform
+            className="portfolio-item group relative overflow-hidden rounded-3xl cursor-pointer bg-white/40 backdrop-blur-md border border-white/60 shadow-[0_8px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_15px_40px_rgba(99,102,241,0.15)] break-inside-avoid block w-full mb-4 md:mb-6 transition-all transform-gpu will-change-transform"
+        >
+            {item.type === 'image' ? (
+                // PERBAIKAN 2: Tambahkan class 'block' pada img agar tidak ada ruang kosong di bawah gambar
+                <img src={item.src} className="block w-full h-auto transition-transform duration-700 group-hover:scale-105" alt="Portfolio" />
+            ) : (
+                <>
+                    {/* PERBAIKAN 3: Tambahkan class 'block' pada video juga */}
+                    <video src={`${item.src}#t=${item.thumbTime || '0.1'}`} preload="metadata" playsInline className="block w-full h-auto object-cover pointer-events-none transition-transform duration-700 group-hover:scale-105"></video>
+                    <div className="absolute inset-0 flex items-center justify-center z-20 transition-transform duration-500 group-hover:scale-105 pointer-events-none">
+                        <div className="w-[20%] min-w-[48px] max-w-[68px] aspect-square rounded-full bg-white/30 backdrop-blur-xl border border-white/50 flex items-center justify-center text-indigo-600 shadow-[0_8px_32px_rgba(255,255,255,0.2)] transition-all duration-300 group-hover:scale-110 group-hover:bg-white/50 group-hover:border-white/70 group-hover:shadow-[0_8px_32px_rgba(255,255,255,0.4)]">
+                            <i className="ph-fill ph-play text-xl md:text-2xl ml-1 drop-shadow-sm"></i>
+                        </div>
+                    </div>
+                </>
+            )}
+            <div className="overlay absolute inset-0 bg-gradient-to-t from-white/80 via-white/20 to-transparent flex flex-col justify-end p-6 pointer-events-none z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+        </div>
+    ))}
+</div>
 
                         )}
                     </div>
