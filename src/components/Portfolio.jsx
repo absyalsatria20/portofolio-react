@@ -91,13 +91,13 @@ const Portfolio = () => {
     );
 
     // ========================================================
-    // KOMPONEN KARTU
+    // KOMPONEN KARTU (Efek Hover Ungu & Overlay Sudah Diperbaiki!)
     // ========================================================
     const renderCard = (item) => (
         <div 
             key={item.id} 
             onClick={() => setSelectedItem(item)} 
-            className="group relative overflow-hidden rounded-3xl cursor-pointer bg-white/40 backdrop-blur-md border border-white/60 shadow-sm hover:shadow-xl transition-all duration-300 w-full"
+            className="group relative overflow-hidden rounded-3xl cursor-pointer bg-white/40 backdrop-blur-md border border-white/60 shadow-[0_8px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_rgba(99,102,241,0.3)] hover:-translate-y-2 transition-all duration-500 w-full"
         >
             {item.type === 'image' ? (
                 <img src={item.src} className="block w-full h-auto transition-transform duration-700 group-hover:scale-105" alt="Portfolio" />
@@ -105,13 +105,14 @@ const Portfolio = () => {
                 <>
                     <video src={`${item.src}#t=${item.thumbTime || '0.1'}`} preload="metadata" playsInline className="block w-full h-auto object-cover pointer-events-none transition-transform duration-700 group-hover:scale-105"></video>
                     <div className="absolute inset-0 flex items-center justify-center z-20 transition-transform duration-500 group-hover:scale-105 pointer-events-none">
-                        <div className="w-[20%] min-w-[48px] max-w-[68px] aspect-square rounded-full bg-white/30 backdrop-blur-xl border border-white/50 flex items-center justify-center text-indigo-600 shadow-sm transition-all duration-300 group-hover:scale-110 group-hover:bg-white/50 group-hover:border-white/70">
+                        <div className="w-[20%] min-w-[48px] max-w-[68px] aspect-square rounded-full bg-white/30 backdrop-blur-xl border border-white/50 flex items-center justify-center text-indigo-600 shadow-[0_8px_32px_rgba(255,255,255,0.2)] transition-all duration-300 group-hover:scale-110 group-hover:bg-white/80 group-hover:border-white group-hover:shadow-[0_0_20px_rgba(99,102,241,0.5)]">
                             <i className="ph-fill ph-play text-xl md:text-2xl ml-1 drop-shadow-sm"></i>
                         </div>
                     </div>
                 </>
             )}
-            <div className="overlay absolute inset-0 bg-gradient-to-t from-white/80 via-white/20 to-transparent flex flex-col justify-end p-6 pointer-events-none z-10 opacity-0 hover:group-hover:opacity-100 transition-opacity duration-500"></div>
+            {/* Class hover yang error sudah dikembalikan menjadi group-hover yang valid */}
+            <div className="overlay absolute inset-0 bg-gradient-to-t from-white/80 via-white/20 to-transparent flex flex-col justify-end p-6 pointer-events-none z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
         </div>
     );
 
