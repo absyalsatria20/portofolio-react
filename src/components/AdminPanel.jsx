@@ -78,8 +78,16 @@ const AdminPanel = ({ onProjectAdded }) => {
 
                 const cloudRes = await fetch(cloudinaryUrl, { method: 'POST', body: uploadData });
                 const cloudResult = await cloudRes.json();
+                
                 if (!cloudRes.ok) throw new Error(cloudResult.error?.message || 'Gagal upload');
-                finalSrc = cloudResult.secure_url;
+                
+                // ========================================================
+                // JURUS KOMPRESI CLOUDINARY (f_auto, q_auto)
+                // ========================================================
+                const originalUrl = cloudResult.secure_url;
+                // Kita sisipkan parameter kompresi tepat setelah kata "/upload/"
+                finalSrc = originalUrl.replace('/upload/', '/upload/f_auto,q_auto/');
+                // ========================================================
             }
 
             setMessage('⏳ Menyimpan proyek...');
