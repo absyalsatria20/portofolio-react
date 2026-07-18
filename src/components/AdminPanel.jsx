@@ -63,6 +63,7 @@ const AdminPanel = ({ onProjectAdded }) => {
         e.preventDefault();
         setIsSubmitting(true);
         setMessage('');
+        
         let finalSrc = formData.src;
 
         try {
@@ -78,15 +79,20 @@ const AdminPanel = ({ onProjectAdded }) => {
 
                 const cloudRes = await fetch(cloudinaryUrl, { method: 'POST', body: uploadData });
                 const cloudResult = await cloudRes.json();
-                
                 if (!cloudRes.ok) throw new Error(cloudResult.error?.message || 'Gagal upload');
                 
-                // ========================================================
-                // JURUS KOMPRESI CLOUDINARY (f_auto, q_auto)
-                // ========================================================
+                // Kompresi untuk mode UPLOAD FILE
                 const originalUrl = cloudResult.secure_url;
-                // Kita sisipkan parameter kompresi tepat setelah kata "/upload/"
                 finalSrc = originalUrl.replace('/upload/', '/upload/f_auto,q_auto/');
+                
+            } else if (uploadMode === 'url') {
+                // ========================================================
+                // JURUS KOMPRESI UNTUK MODE MANUAL URL
+                // ========================================================
+                // Cek apakah linknya dari Cloudinary, ada tulisan '/upload/', dan BELUM dipasang f_auto
+                if (finalSrc.includes('cloudinary.com') && finalSrc.includes('/upload/') && !finalSrc.includes('f_auto')) {
+                    finalSrc = finalSrc.replace('/upload/', '/upload/f_auto,q_auto/');
+                }
                 // ========================================================
             }
 
