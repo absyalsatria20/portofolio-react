@@ -2,21 +2,14 @@ import { useState, useEffect, useCallback, memo } from 'react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import AdminPanel from './AdminPanel';
 
-// ========================================================
-// OPTIMASI 1: Ekstraksi Komponen & React.memo
-// Memisahkan kartu agar tidak me-render ulang seluruh grid
-// saat satu kartu di-klik atau modal terbuka.
-// ========================================================
 const ProjectCard = memo(({ item, onClick }) => {
     return (
         <div 
             onClick={() => onClick(item)} 
-            // OPTIMASI 2: Tambahkan transform-gpu agar efek blur dan hover diproses oleh VGA, bukan CPU
             className="group relative overflow-hidden rounded-3xl cursor-pointer bg-white/40 backdrop-blur-md border border-white/60 shadow-[0_8px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_rgba(99,102,241,0.3)] hover:-translate-y-2 transform-gpu transition-all duration-500 w-full"
         >
             {item.type === 'image' ? (
-                // OPTIMASI 3: loading="lazy" & decoding="async" agar gambar tidak mencekik RAM
-                <img src={item.src} loading="lazy" decoding="async" className="block w-full h-auto transform-gpu transition-transform duration-700 group-hover:scale-105" alt="Portfolio" />
+                <img src={item.src} className="block w-full h-auto transform-gpu transition-transform duration-700 group-hover:scale-105" alt="Portfolio" />
             ) : (
                 <>
                     <video src={`${item.src}#t=${item.thumbTime || '0.1'}`} preload="metadata" playsInline className="block w-full h-auto object-cover pointer-events-none transform-gpu transition-transform duration-700 group-hover:scale-105"></video>
@@ -118,7 +111,6 @@ const Portfolio = () => {
         activeFilter === 'all' || item.category === activeFilter
     );
 
-    // useCallback agar fungsi klik tidak dibuat ulang setiap re-render
     const handleCardClick = useCallback((item) => {
         setSelectedItem(item);
     }, []);
@@ -177,7 +169,7 @@ const Portfolio = () => {
                                         <div className="text-slate-400 pl-1 md:pl-2 shrink-0"><i className="ph-bold ph-dots-six-vertical text-xl md:text-3xl"></i></div>
                                         <div className="font-black text-lg md:text-2xl text-slate-300 w-5 md:w-8 text-center shrink-0">{index + 1}</div>
                                         <div className="w-16 h-12 md:w-28 md:h-20 shrink-0 rounded-lg md:rounded-xl overflow-hidden bg-slate-900 shadow-inner transform-gpu">
-                                            {item.type === 'image' ? ( <img src={item.src} loading="lazy" decoding="async" className="w-full h-full object-cover opacity-90" alt="Thumb" /> ) : ( <video src={`${item.src}#t=${item.thumbTime || '0.1'}`} preload="metadata" className="w-full h-full object-cover opacity-90 pointer-events-none"></video> )}
+                                            {item.type === 'image' ? ( <img src={item.src} className="w-full h-full object-cover opacity-90" alt="Thumb" /> ) : ( <video src={`${item.src}#t=${item.thumbTime || '0.1'}`} preload="metadata" className="w-full h-full object-cover opacity-90 pointer-events-none"></video> )}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <span className="text-[9px] md:text-xs font-bold uppercase tracking-wider text-indigo-500 bg-indigo-50 px-2 py-0.5 md:py-1 rounded-md inline-block mb-1">{item.category}</span>
@@ -241,7 +233,7 @@ const Portfolio = () => {
                         </button>
                         <motion.div initial={{ scale: 0.8, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.8, opacity: 0, y: 20 }} transition={{ type: "spring", damping: 25, stiffness: 300 }} className="relative max-w-full max-h-full rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] transform-gpu" onClick={(e) => e.stopPropagation()}>
                             {selectedItem.type === 'image' ? (
-                                <img src={selectedItem.src} alt="Zoomed Portfolio" loading="lazy" decoding="async" className="max-w-full max-h-[90vh] object-contain rounded-2xl transform-gpu" />
+                                <img src={selectedItem.src} alt="Zoomed Portfolio" className="max-w-full max-h-[90vh] object-contain rounded-2xl transform-gpu" />
                             ) : (
                                 <video src={selectedItem.src} controls autoPlay className="max-w-full max-h-[90vh] rounded-2xl bg-black transform-gpu" />
                             )}
