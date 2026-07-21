@@ -1,6 +1,83 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo, memo } from 'react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import AdminPanel from './AdminPanel';
+
+// ========================================================
+// HOOK: Lazy-load saat elemen mendekati layar (IntersectionObserver)
+// Tujuannya supaya HP tidak langsung mengunduh SEMUA gambar & video
+// sekaligus saat halaman baru dibuka — hanya yang mendekati area
+// layar (viewport) yang mulai dimuat.
+// ========================================================
+function useInViewOnce(rootMargin = '300px') {
+    const ref = useRef(null);
+    const [isInView, setIsInView] = useState(false);
+
+    useEffect(() => {
+        if (!ref.current || isInView) return;
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    setIsInView(true);
+                    observer.disconnect();
+                }
+            },
+            { rootMargin }
+        );
+        observer.observe(ref.current);
+        return () => observer.disconnect();
+    }, [isInView, rootMargin]);
+
+    return [ref, isInView];
+}
+
+// ========================================================
+// KOMPONEN KARTU — dipisah dari Portfolio + dibungkus memo()
+// - memo(): kartu lain tidak ikut render ulang saat modal, filter,
+//   atau mode edit berubah di komponen induk.
+// - useInViewOnce: <img>/<video> baru dipasang ke DOM (dan baru
+//   mulai diunduh browser) saat kartu mendekati area layar.
+// ========================================================
+const PortfolioCard = memo(function PortfolioCard({ item, onSelect }) {
+    const [ref, isInView] = useInViewOnce('300px');
+
+    return (
+        <div
+            ref={ref}
+            onClick={() => onSelect(item)}
+            className="group relative overflow-hidden rounded-3xl cursor-pointer bg-white/40 backdrop-blur-md border border-white/60 shadow-[0_8px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_rgba(99,102,241,0.3)] hover:-translate-y-2 transition-all duration-500 w-full"
+        >
+            {!isInView ? (
+                // Placeholder ringan selagi kartu belum masuk area layar
+                <div className="w-full h-48 md:h-64 bg-slate-200/60 animate-pulse" />
+            ) : item.type === 'image' ? (
+                <img
+                    src={item.src}
+                    loading="lazy"
+                    decoding="async"
+                    className="block w-full h-auto transition-transform duration-700 group-hover:scale-105"
+                    alt="Portfolio"
+                />
+            ) : (
+                <>
+                    <video
+                        src={`${item.src}#t=${item.thumbTime || '0.1'}`}
+                        preload="metadata"
+                        muted
+                        playsInline
+                        className="block w-full h-auto object-cover pointer-events-none transition-transform duration-700 group-hover:scale-105"
+                    ></video>
+                    <div className="absolute inset-0 flex items-center justify-center z-20 transition-transform duration-500 group-hover:scale-105 pointer-events-none">
+                        <div className="w-[20%] min-w-[48px] max-w-[68px] aspect-square rounded-full bg-white/30 backdrop-blur-xl border border-white/50 flex items-center justify-center text-indigo-600 shadow-[0_8px_32px_rgba(255,255,255,0.2)] transition-all duration-300 group-hover:scale-110 group-hover:bg-white/80 group-hover:border-white group-hover:shadow-[0_0_20px_rgba(99,102,241,0.5)]">
+                            <i className="ph-fill ph-play text-xl md:text-2xl ml-1 drop-shadow-sm"></i>
+                        </div>
+                    </div>
+                </>
+            )}
+            {/* Class hover yang error sudah dikembalikan menjadi group-hover yang valid */}
+            <div className="overlay absolute inset-0 bg-gradient-to-t from-white/80 via-white/20 to-transparent flex flex-col justify-end p-6 pointer-events-none z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+        </div>
+    );
+});
 
 const Portfolio = () => {
     const [activeFilter, setActiveFilter] = useState('all');
@@ -86,34 +163,9 @@ const Portfolio = () => {
         }
     };
 
-    const filteredItems = portfolioData.filter(item => 
-        activeFilter === 'all' || item.category === activeFilter
-    );
-
-    // ========================================================
-    // KOMPONEN KARTU (Efek Hover Ungu & Overlay Sudah Diperbaiki!)
-    // ========================================================
-    const renderCard = (item) => (
-        <div 
-            key={item.id} 
-            onClick={() => setSelectedItem(item)} 
-            className="group relative overflow-hidden rounded-3xl cursor-pointer bg-white/40 backdrop-blur-md border border-white/60 shadow-[0_8px_30px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_rgba(99,102,241,0.3)] hover:-translate-y-2 transition-all duration-500 w-full"
-        >
-            {item.type === 'image' ? (
-                <img src={item.src} className="block w-full h-auto transition-transform duration-700 group-hover:scale-105" alt="Portfolio" />
-            ) : (
-                <>
-                    <video src={`${item.src}#t=${item.thumbTime || '0.1'}`} preload="metadata" playsInline className="block w-full h-auto object-cover pointer-events-none transition-transform duration-700 group-hover:scale-105"></video>
-                    <div className="absolute inset-0 flex items-center justify-center z-20 transition-transform duration-500 group-hover:scale-105 pointer-events-none">
-                        <div className="w-[20%] min-w-[48px] max-w-[68px] aspect-square rounded-full bg-white/30 backdrop-blur-xl border border-white/50 flex items-center justify-center text-indigo-600 shadow-[0_8px_32px_rgba(255,255,255,0.2)] transition-all duration-300 group-hover:scale-110 group-hover:bg-white/80 group-hover:border-white group-hover:shadow-[0_0_20px_rgba(99,102,241,0.5)]">
-                            <i className="ph-fill ph-play text-xl md:text-2xl ml-1 drop-shadow-sm"></i>
-                        </div>
-                    </div>
-                </>
-            )}
-            {/* Class hover yang error sudah dikembalikan menjadi group-hover yang valid */}
-            <div className="overlay absolute inset-0 bg-gradient-to-t from-white/80 via-white/20 to-transparent flex flex-col justify-end p-6 pointer-events-none z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-        </div>
+    const filteredItems = useMemo(
+        () => portfolioData.filter(item => activeFilter === 'all' || item.category === activeFilter),
+        [portfolioData, activeFilter]
     );
 
     return (
@@ -171,7 +223,7 @@ const Portfolio = () => {
                                         <div className="text-slate-400 pl-1 md:pl-2 shrink-0"><i className="ph-bold ph-dots-six-vertical text-xl md:text-3xl"></i></div>
                                         <div className="font-black text-lg md:text-2xl text-slate-300 w-5 md:w-8 text-center shrink-0">{index + 1}</div>
                                         <div className="w-16 h-12 md:w-28 md:h-20 shrink-0 rounded-lg md:rounded-xl overflow-hidden bg-slate-900 shadow-inner">
-                                            {item.type === 'image' ? ( <img src={item.src} className="w-full h-full object-cover opacity-90" alt="Thumb" /> ) : ( <video src={`${item.src}#t=${item.thumbTime || '0.1'}`} className="w-full h-full object-cover opacity-90 pointer-events-none"></video> )}
+                                            {item.type === 'image' ? ( <img src={item.src} loading="lazy" decoding="async" className="w-full h-full object-cover opacity-90" alt="Thumb" /> ) : ( <video src={`${item.src}#t=${item.thumbTime || '0.1'}`} preload="metadata" muted playsInline className="w-full h-full object-cover opacity-90 pointer-events-none"></video> )}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <span className="text-[9px] md:text-xs font-bold uppercase tracking-wider text-indigo-500 bg-indigo-50 px-2 py-0.5 md:py-1 rounded-md inline-block mb-1">{item.category}</span>
@@ -193,23 +245,33 @@ const Portfolio = () => {
                                 {/* LAYOUT MOBILE: Grid 2 Kolom berisi Flex vertikal */}
                                 <div className="grid grid-cols-2 gap-4 lg:hidden items-start">
                                     <div className="flex flex-col gap-4">
-                                        {filteredItems.filter((_, i) => i % 2 === 0).map(item => renderCard(item))}
+                                        {filteredItems.filter((_, i) => i % 2 === 0).map(item => (
+                                            <PortfolioCard key={item.id} item={item} onSelect={setSelectedItem} />
+                                        ))}
                                     </div>
                                     <div className="flex flex-col gap-4">
-                                        {filteredItems.filter((_, i) => i % 2 !== 0).map(item => renderCard(item))}
+                                        {filteredItems.filter((_, i) => i % 2 !== 0).map(item => (
+                                            <PortfolioCard key={item.id} item={item} onSelect={setSelectedItem} />
+                                        ))}
                                     </div>
                                 </div>
 
                                 {/* LAYOUT DESKTOP: Grid 3 Kolom berisi Flex vertikal */}
                                 <div className="hidden lg:grid grid-cols-3 gap-6 items-start">
                                     <div className="flex flex-col gap-6">
-                                        {filteredItems.filter((_, i) => i % 3 === 0).map(item => renderCard(item))}
+                                        {filteredItems.filter((_, i) => i % 3 === 0).map(item => (
+                                            <PortfolioCard key={item.id} item={item} onSelect={setSelectedItem} />
+                                        ))}
                                     </div>
                                     <div className="flex flex-col gap-6">
-                                        {filteredItems.filter((_, i) => i % 3 === 1).map(item => renderCard(item))}
+                                        {filteredItems.filter((_, i) => i % 3 === 1).map(item => (
+                                            <PortfolioCard key={item.id} item={item} onSelect={setSelectedItem} />
+                                        ))}
                                     </div>
                                     <div className="flex flex-col gap-6">
-                                        {filteredItems.filter((_, i) => i % 3 === 2).map(item => renderCard(item))}
+                                        {filteredItems.filter((_, i) => i % 3 === 2).map(item => (
+                                            <PortfolioCard key={item.id} item={item} onSelect={setSelectedItem} />
+                                        ))}
                                     </div>
                                 </div>
                             </div>
@@ -230,7 +292,7 @@ const Portfolio = () => {
                             {selectedItem.type === 'image' ? (
                                 <img src={selectedItem.src} alt="Zoomed Portfolio" className="max-w-full max-h-[90vh] object-contain rounded-2xl" />
                             ) : (
-                                <video src={selectedItem.src} controls autoPlay className="max-w-full max-h-[90vh] rounded-2xl bg-black" />
+                                <video src={selectedItem.src} controls autoPlay playsInline className="max-w-full max-h-[90vh] rounded-2xl bg-black" />
                             )}
                         </motion.div>
                     </motion.div>
