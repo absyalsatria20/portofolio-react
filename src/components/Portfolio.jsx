@@ -93,7 +93,7 @@ const SortableEditItem = ({ item, index, onDelete }) => {
             value={item} 
             dragListener={false} 
             dragControls={controls} 
-            // ⚡ Tambahkan class 'select-none' di sini untuk mencegah teks terseleksi biru
+            // Tambahkan select-none di parent
             className="select-none group relative overflow-hidden rounded-xl md:rounded-2xl bg-white/80 backdrop-blur-md border border-slate-200 shadow-sm flex items-center p-2 md:p-3 gap-2 md:gap-4 transition-colors hover:border-indigo-400 hover:bg-white"
         >
             {/* Area Pemicu Drag */}
@@ -105,17 +105,22 @@ const SortableEditItem = ({ item, index, onDelete }) => {
                 <i className="ph-bold ph-dots-six-vertical text-xl md:text-3xl pointer-events-none"></i>
             </div>
             
-            <div className="font-black text-lg md:text-2xl text-slate-300 w-5 md:w-8 text-center shrink-0">{index + 1}</div>
+            {/* ⚡ Tambahkan select-none pada angka */}
+            <div className="select-none font-black text-lg md:text-2xl text-slate-300 w-5 md:w-8 text-center shrink-0">
+                {index + 1}
+            </div>
             
-            <div className="w-16 h-12 md:w-28 md:h-20 shrink-0 rounded-lg md:rounded-xl overflow-hidden bg-slate-900 shadow-inner">
+            <div className="select-none w-16 h-12 md:w-28 md:h-20 shrink-0 rounded-lg md:rounded-xl overflow-hidden bg-slate-900 shadow-inner">
                 {item.type === 'image' ? ( 
-                    <img src={item.src} className="w-full h-full object-cover opacity-90" alt="Thumb" /> 
+                    // ⚡ Tambahkan draggable={false} agar gambar tidak bisa diseret bawaan browser
+                    <img src={item.src} draggable={false} className="select-none w-full h-full object-cover opacity-90 pointer-events-none" alt="Thumb" /> 
                 ) : ( 
-                    <video src={`${item.src}#t=${item.thumbTime || '0.1'}`} preload="metadata" muted playsInline className="w-full h-full object-cover opacity-90 pointer-events-none"></video> 
+                    <video src={`${item.src}#t=${item.thumbTime || '0.1'}`} preload="metadata" muted playsInline className="select-none w-full h-full object-cover opacity-90 pointer-events-none"></video> 
                 )}
             </div>
             
-            <div className="flex-1 min-w-0">
+            {/* ⚡ Tambahkan select-none pada area teks */}
+            <div className="select-none flex-1 min-w-0 pointer-events-none">
                 <span className="text-[9px] md:text-xs font-bold uppercase tracking-wider text-indigo-500 bg-indigo-50 px-2 py-0.5 md:py-1 rounded-md inline-block mb-1">{item.category}</span>
                 <div className="text-slate-400 text-[10px] md:text-xs truncate w-full">{item.src}</div>
             </div>
