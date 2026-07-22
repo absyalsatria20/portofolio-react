@@ -4,6 +4,9 @@ import AdminPanel from './AdminPanel';
 
 // ========================================================
 // HOOK: Lazy-load saat elemen mendekati layar (IntersectionObserver)
+// Tujuannya supaya HP tidak langsung mengunduh SEMUA gambar & video
+// sekaligus saat halaman baru dibuka — hanya yang mendekati area
+// layar (viewport) yang mulai dimuat.
 // ========================================================
 function useInViewOnce(rootMargin = '300px') {
     const ref = useRef(null);
@@ -28,7 +31,11 @@ function useInViewOnce(rootMargin = '300px') {
 }
 
 // ========================================================
-// KOMPONEN KARTU TAMPILAN NORMAL (PortfolioCard)
+// KOMPONEN KARTU — dipisah dari Portfolio + dibungkus memo()
+// - memo(): kartu lain tidak ikut render ulang saat modal, filter,
+//   atau mode edit berubah di komponen induk.
+// - useInViewOnce: <img>/<video> baru dipasang ke DOM (dan baru
+//   mulai diunduh browser) saat kartu mendekati area layar.
 // ========================================================
 const PortfolioCard = memo(function PortfolioCard({ item, onSelect }) {
     const [ref, isInView] = useInViewOnce('300px');
@@ -37,15 +44,18 @@ const PortfolioCard = memo(function PortfolioCard({ item, onSelect }) {
         <div
             ref={ref}
             onClick={() => onSelect(item)}
+            // ⚡ OPTIMASI CSS HOVER: transition-all diganti transition-transform, hapus animasi shadow yang berat
             className="group relative overflow-hidden rounded-3xl cursor-pointer bg-slate-50/95 border border-white/60 shadow-[0_8px_30px_rgba(0,0,0,0.08)] hover:-translate-y-2 transform-gpu transition-transform duration-300 w-full hover:ring-2 hover:ring-indigo-400/50"
         >
             {!isInView ? (
+                // Placeholder ringan selagi kartu belum masuk area layar
                 <div className="w-full h-48 md:h-64 bg-slate-200/60 animate-pulse" />
             ) : item.type === 'image' ? (
                 <img
                     src={item.src}
                     loading="lazy"
                     decoding="async"
+                    // ⚡ Durasi dipercepat jadi 300ms agar lebih responsif
                     className="block w-full h-auto transform-gpu transition-transform duration-300 group-hover:scale-105"
                     alt="Portfolio"
                 />
@@ -56,9 +66,11 @@ const PortfolioCard = memo(function PortfolioCard({ item, onSelect }) {
                         preload="metadata"
                         muted
                         playsInline
+                        // ⚡ Durasi dipercepat jadi 300ms
                         className="block w-full h-auto object-cover pointer-events-none transform-gpu transition-transform duration-300 group-hover:scale-105"
                     ></video>
                     <div className="absolute inset-0 flex items-center justify-center z-20 transition-transform duration-300 group-hover:scale-105 pointer-events-none transform-gpu">
+                        {/* ⚡ Tombol Play disederhanakan animasinya */}
                         <div className="w-[20%] min-w-[48px] max-w-[68px] aspect-square rounded-full bg-white/70 backdrop-blur-sm border border-white/50 flex items-center justify-center text-indigo-600 shadow-md transition-transform duration-300 group-hover:scale-110 transform-gpu">
                             <i className="ph-fill ph-play text-xl md:text-2xl ml-1 drop-shadow-sm"></i>
                         </div>
@@ -115,17 +127,15 @@ const SortableEditItem = ({ item, index, onDelete }) => {
     );
 };
 
-
-// ========================================================
-// KOMPONEN UTAMA (Portfolio)
-// ========================================================
 const Portfolio = () => {
     const [activeFilter, setActiveFilter] = useState('all');
     const [selectedItem, setSelectedItem] = useState(null);
     
+    // Wadah data
     const [portfolioData, setPortfolioData] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     
+    // STATE: Mode Edit & Deteksi Perubahan Layout
     const [isEditMode, setIsEditMode] = useState(false);
     const [isOrderChanged, setIsOrderChanged] = useState(false);
 
@@ -210,6 +220,7 @@ const Portfolio = () => {
         <>
             <section id="karya" className="py-24 relative z-20 px-6 md:px-12 lg:px-16">
                 
+                {/* --- BACKGROUND GARIS KOTAK-KOTAK DIKEMBALIKAN --- */}
                 <div className="absolute top-0 right-0 w-[500px] h-[600px] bg-[linear-gradient(to_right,#cbd5e1_1px,transparent_1px),linear-gradient(to_bottom,#cbd5e1_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_100%_100%_at_100%_0%,#000_60%,transparent_100%)] opacity-50 z-0 pointer-events-none"></div>
                 <div className="absolute bottom-0 left-0 w-[500px] h-[600px] bg-[linear-gradient(to_right,#cbd5e1_1px,transparent_1px),linear-gradient(to_bottom,#cbd5e1_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_100%_100%_at_0%_100%,#000_60%,transparent_100%)] opacity-50 z-0 pointer-events-none"></div>
 
@@ -253,7 +264,7 @@ const Portfolio = () => {
                             <Reorder.Group axis="y" values={portfolioData} onReorder={(newOrder) => { setPortfolioData(newOrder); setIsOrderChanged(true); }} className="flex flex-col gap-3 md:gap-4 max-w-3xl mx-auto w-full pb-10">
                                 <div className="bg-amber-100 text-amber-700 px-4 py-3 rounded-xl md:rounded-2xl mb-2 text-xs md:text-sm font-bold border border-amber-200 flex items-center gap-3">
                                     <i className="ph-bold ph-info text-lg md:text-xl shrink-0"></i>
-                                    <span>Tahan dan seret baris ke atas/bawah menggunakan Ikon Titik di sebelah kiri.</span>
+                                    <span>Tahan dan seret baris ke atas/bawah untuk mengubah urutan.</span>
                                 </div>
                                 {portfolioData.map((item, index) => (
                                     <SortableEditItem 
@@ -267,8 +278,11 @@ const Portfolio = () => {
 
                         ) : (
 
+                            // ========================================================
+                            // TAMPILAN NORMAL: HYBRID GRID + MASONRY (Anti-Bug)
+                            // ========================================================
                             <div className="w-full">
-                                {/* LAYOUT MOBILE */}
+                                {/* LAYOUT MOBILE: Grid 2 Kolom berisi Flex vertikal */}
                                 <div className="grid grid-cols-2 gap-4 lg:hidden items-start">
                                     <div className="flex flex-col gap-4">
                                         {filteredItems.filter((_, i) => i % 2 === 0).map(item => (
@@ -282,7 +296,7 @@ const Portfolio = () => {
                                     </div>
                                 </div>
 
-                                {/* LAYOUT DESKTOP */}
+                                {/* LAYOUT DESKTOP: Grid 3 Kolom berisi Flex vertikal */}
                                 <div className="hidden lg:grid grid-cols-3 gap-6 items-start">
                                     <div className="flex flex-col gap-6">
                                         {filteredItems.filter((_, i) => i % 3 === 0).map(item => (
