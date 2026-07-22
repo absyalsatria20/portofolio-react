@@ -84,7 +84,6 @@ const PortfolioCard = memo(function PortfolioCard({ item, onSelect }) {
 
 // ========================================================
 // KOMPONEN KARTU MODE EDIT (SortableEditItem)
-// Hanya bisa di-drag lewat Icon titik enam
 // ========================================================
 const SortableEditItem = ({ item, index, onDelete }) => {
     const controls = useDragControls();
@@ -92,11 +91,12 @@ const SortableEditItem = ({ item, index, onDelete }) => {
     return (
         <Reorder.Item 
             value={item} 
-            dragListener={false} // Matikan drag di seluruh badan kartu
-            dragControls={controls} // Gunakan kontrol kustom
-            className="group relative overflow-hidden rounded-xl md:rounded-2xl bg-white/80 backdrop-blur-md border border-slate-200 shadow-sm flex items-center p-2 md:p-3 gap-2 md:gap-4 transition-colors hover:border-indigo-400 hover:bg-white"
+            dragListener={false} 
+            dragControls={controls} 
+            // ⚡ Tambahkan class 'select-none' di sini untuk mencegah teks terseleksi biru
+            className="select-none group relative overflow-hidden rounded-xl md:rounded-2xl bg-white/80 backdrop-blur-md border border-slate-200 shadow-sm flex items-center p-2 md:p-3 gap-2 md:gap-4 transition-colors hover:border-indigo-400 hover:bg-white"
         >
-            {/* Area Pemicu Drag (Hanya di Ikon) */}
+            {/* Area Pemicu Drag */}
             <div 
                 className="text-slate-400 pl-1 md:pl-2 shrink-0 cursor-grab active:cursor-grabbing p-2 hover:text-indigo-500 transition-colors"
                 onPointerDown={(e) => controls.start(e)}
