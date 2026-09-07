@@ -145,7 +145,7 @@ const Portfolio = () => {
     const [isOrderChanged, setIsOrderChanged] = useState(false);
 
     useEffect(() => {
-        fetch('https://portofolio-backend-nine.vercel.app/api/api/projects')
+        fetch(`${import.meta.env.VITE_API_URL}/projects`)
             .then(response => response.json())
             .then(data => {
                 setPortfolioData(data);
@@ -162,7 +162,7 @@ const Portfolio = () => {
         const pin = window.prompt("⚠️ Masukkan PIN Rahasia untuk MENGHAPUS project ini:");
         if (pin !== null && pin !== "") {
             try {
-                const response = await fetch(`https://portofolio-backend-nine.vercel.app/api/api/projects/${id}`, {
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/projects/${id}`, {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                     body: JSON.stringify({ secret_pin: pin })
@@ -189,7 +189,7 @@ const Portfolio = () => {
                 sort_order: index + 1
             }));
             try {
-                const response = await fetch('https://portofolio-backend-nine.vercel.app/api/api/projects/reorder', {
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/projects/reorder`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                     body: JSON.stringify({ secret_pin: pin, items: reorderedItems })
