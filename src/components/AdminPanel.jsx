@@ -100,7 +100,7 @@ const AdminPanel = ({ onProjectAdded }) => {
             const payloadType = (uploadMode === 'file' && file) ? formData.type : (formData.category === 'motion' ? 'video' : 'image');
             const payload = { ...formData, type: payloadType, src: finalSrc };
 
-            const response = await fetch('https://portofolio-backend-production-98e1.up.railway.app/api/projects', {
+            const response = await fetch('https://portofolio-backend-nine.vercel.app/api/api/projects', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                 body: JSON.stringify(payload)
