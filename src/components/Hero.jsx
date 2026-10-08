@@ -112,7 +112,7 @@ const Hero = () => {
                                         <span className="italic">Klik di bawah untuk melihat resume lengkap dan perjalanan karier saya.</span>
                                     </p>
                                     
-                                    <a href="https://res.cloudinary.com/vkyl7elo/image/upload/v1783665392/Absyal_Ayang_satria-resume_xgcl2c.pdf " target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-md border border-white/20 text-white px-6 py-3 rounded-xl text-sm font-semibold hover:bg-white hover:text-[#050505] hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] transition-all duration-300 opacity-0 md:group-hover:opacity-100 group-[.is-active]:opacity-100 delay-300">
+                                    <a href="https://res.cloudinary.com/vkyl7elo/image/upload/v1791432514/Absyal_Ayang_satria-resume_gcwd4b.pdf " target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-md border border-white/20 text-white px-6 py-3 rounded-xl text-sm font-semibold hover:bg-white hover:text-[#050505] hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] transition-all duration-300 opacity-0 md:group-hover:opacity-100 group-[.is-active]:opacity-100 delay-300">
                                         Lihat CV / Resume
                                         <i className="ph-bold ph-file-text text-lg"></i>
                                     </a>
