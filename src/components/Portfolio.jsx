@@ -53,7 +53,6 @@ const PortfolioCard = memo(function PortfolioCard({ item, onSelect }) {
             ) : item.type === 'image' ? (
                 <img
                     src={item.src}
-                    loading="lazy"
                     decoding="async"
                     // ⚡ Durasi dipercepat jadi 300ms agar lebih responsif
                     className="block w-full h-auto transform-gpu transition-transform duration-300 group-hover:scale-105"
