@@ -1,3 +1,5 @@
+import { trackEvent } from '../lib/analytics.js';
+
 const Contact = () => {
     return (
         <section id="kontak" className="py-24 relative overflow-hidden z-20">
@@ -24,6 +26,7 @@ const Contact = () => {
                 <a href="https://wa.me/6285923451479" 
                    target="_blank" 
                    rel="noopener noreferrer" 
+                   onClick={() => trackEvent('whatsapp_click', { contact_type: 'whatsapp' })}
                    className="inline-flex items-center justify-center gap-3.5 px-8 py-5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-extrabold text-base md:text-lg rounded-full transition-all duration-300 hover:scale-105 shadow-[0_8px_25px_rgba(16,185,129,0.3)] cursor-pointer">
                     <i className="ph-fill ph-whatsapp-logo text-2xl"></i>
                     <span>Chat via WhatsApp Sekarang</span>
@@ -34,6 +37,7 @@ const Contact = () => {
                     <a href="https://mail.google.com/mail/?view=cm&fs=1&to=absyalsatria20@gmail.com" 
                         target="_blank" 
                         rel="noopener noreferrer" 
+                        onClick={() => trackEvent('email_click', { contact_type: 'email' })}
                         className="hover:text-indigo-600 underline underline-offset-4 transition-colors cursor-pointer">
                             Atau kirim lewat Email: absyalsatria20@gmail.com
                     </a>

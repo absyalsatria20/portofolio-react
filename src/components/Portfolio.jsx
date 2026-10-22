@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, memo } from 'react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import AdminPanel from './AdminPanel';
+import { trackEvent } from '../lib/analytics.js';
 
 // ========================================================
 // HOOK: Lazy-load saat elemen mendekati layar (IntersectionObserver)
@@ -43,7 +44,13 @@ const PortfolioCard = memo(function PortfolioCard({ item, onSelect }) {
     return (
         <div
             ref={ref}
-            onClick={() => onSelect(item)}
+            onClick={() => {
+                trackEvent('project_open', {
+                    project_type: item.type,
+                    project_category: item.category,
+                });
+                onSelect(item);
+            }}
             // ⚡ OPTIMASI CSS HOVER: transition-all diganti transition-transform, hapus animasi shadow yang berat
             className="group relative overflow-hidden rounded-3xl cursor-pointer bg-slate-50/95 border border-white/60 shadow-[0_8px_30px_rgba(0,0,0,0.08)] hover:-translate-y-2 transform-gpu transition-transform duration-300 w-full hover:ring-2 hover:ring-indigo-400/50"
         >
@@ -258,9 +265,9 @@ const Portfolio = () => {
                         <div className="w-20 h-1.5 bg-indigo-500 mx-auto rounded-full mb-10 shadow-[0_0_15px_rgba(99,102,241,0.5)]"></div>
                         
                         <div className="flex flex-wrap justify-center gap-3 md:gap-4 mb-12">
-                            <button onClick={() => setActiveFilter('graphic')} className={`px-6 py-3 rounded-full backdrop-blur-xl text-sm font-bold transition-all duration-300 hover:scale-105 active:scale-95 border ${activeFilter === 'graphic' ? 'bg-white/80 border-white text-indigo-700 shadow-[0_8px_32px_rgba(255,255,255,0.6)]' : 'bg-white/30 border-white/50 text-slate-700 hover:bg-white/60 hover:shadow-[0_4px_20px_rgba(255,255,255,0.4)]'}`}>Desain Grafis</button>
-                            <button onClick={() => setActiveFilter('motion')} className={`px-6 py-3 rounded-full backdrop-blur-xl text-sm font-bold transition-all duration-300 hover:scale-105 active:scale-95 border ${activeFilter === 'motion' ? 'bg-white/80 border-white text-indigo-700 shadow-[0_8px_32px_rgba(255,255,255,0.6)]' : 'bg-white/30 border-white/50 text-slate-700 hover:bg-white/60 hover:shadow-[0_4px_20px_rgba(255,255,255,0.4)]'}`}>Motion Grafis</button>
-                            <button onClick={() => setActiveFilter('all')} className={`px-6 py-3 rounded-full backdrop-blur-xl text-sm font-bold transition-all duration-300 hover:scale-105 active:scale-95 border ${activeFilter === 'all' ? 'bg-white/80 border-white text-indigo-700 shadow-[0_8px_32px_rgba(255,255,255,0.6)]' : 'bg-white/30 border-white/50 text-slate-700 hover:bg-white/60 hover:shadow-[0_4px_20px_rgba(255,255,255,0.4)]'}`}>Semua</button>
+                            <button onClick={() => { setActiveFilter('graphic'); trackEvent('project_filter', { filter_name: 'graphic' }); }} className={`px-6 py-3 rounded-full backdrop-blur-xl text-sm font-bold transition-all duration-300 hover:scale-105 active:scale-95 border ${activeFilter === 'graphic' ? 'bg-white/80 border-white text-indigo-700 shadow-[0_8px_32px_rgba(255,255,255,0.6)]' : 'bg-white/30 border-white/50 text-slate-700 hover:bg-white/60 hover:shadow-[0_4px_20px_rgba(255,255,255,0.4)]'}`}>Desain Grafis</button>
+                            <button onClick={() => { setActiveFilter('motion'); trackEvent('project_filter', { filter_name: 'motion' }); }} className={`px-6 py-3 rounded-full backdrop-blur-xl text-sm font-bold transition-all duration-300 hover:scale-105 active:scale-95 border ${activeFilter === 'motion' ? 'bg-white/80 border-white text-indigo-700 shadow-[0_8px_32px_rgba(255,255,255,0.6)]' : 'bg-white/30 border-white/50 text-slate-700 hover:bg-white/60 hover:shadow-[0_4px_20px_rgba(255,255,255,0.4)]'}`}>Motion Grafis</button>
+                            <button onClick={() => { setActiveFilter('all'); trackEvent('project_filter', { filter_name: 'all' }); }} className={`px-6 py-3 rounded-full backdrop-blur-xl text-sm font-bold transition-all duration-300 hover:scale-105 active:scale-95 border ${activeFilter === 'all' ? 'bg-white/80 border-white text-indigo-700 shadow-[0_8px_32px_rgba(255,255,255,0.6)]' : 'bg-white/30 border-white/50 text-slate-700 hover:bg-white/60 hover:shadow-[0_4px_20px_rgba(255,255,255,0.4)]'}`}>Semua</button>
                             
                             <AdminPanel onProjectAdded={() => window.location.reload()} />
 
