@@ -132,6 +132,8 @@ const SortableEditItem = ({ item, index, onDelete }) => {
     );
 };
 
+const PROJECTS_CACHE_KEY = 'portfolio-projects-cache';
+
 const Portfolio = () => {
     const [activeFilter, setActiveFilter] = useState('all');
     const [selectedItem, setSelectedItem] = useState(null);
@@ -145,15 +147,37 @@ const Portfolio = () => {
     const [isOrderChanged, setIsOrderChanged] = useState(false);
 
     useEffect(() => {
+        let hasCachedData = false;
+
+        try {
+            const cachedProjects = window.localStorage.getItem(PROJECTS_CACHE_KEY);
+            if (cachedProjects) {
+                const parsedProjects = JSON.parse(cachedProjects);
+                if (Array.isArray(parsedProjects)) {
+                    setPortfolioData(parsedProjects);
+                    setIsLoading(false);
+                    hasCachedData = true;
+                }
+            }
+        } catch (error) {
+            console.error("Gagal membaca cache project:", error);
+            window.localStorage.removeItem(PROJECTS_CACHE_KEY);
+        }
+
         fetch(`${import.meta.env.VITE_API_URL}/projects`)
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return response.json();
+            })
             .then(data => {
+                if (!Array.isArray(data)) throw new Error('Format data project tidak valid');
                 setPortfolioData(data);
+                window.localStorage.setItem(PROJECTS_CACHE_KEY, JSON.stringify(data));
                 setIsLoading(false);
             })
             .catch(error => {
                 console.error("Gagal menarik data:", error);
-                setIsLoading(false);
+                if (!hasCachedData) setIsLoading(false);
             });
     }, []);
 
