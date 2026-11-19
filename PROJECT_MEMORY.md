@@ -245,6 +245,8 @@ Date: 2026-11-18
 - Not verified against live Supabase: login, insert, delete, reorder, RLS, Cloudinary upload. Do not deploy/retire Laravel until these are exercised.
 - Changed files: `package.json`, `src/components/AdminPanel.jsx`, `src/components/Portfolio.jsx`, `src/lib/supabase.js`, `src/lib/adminAuth.js`, `src/lib/adminAuth.test.js`, `PROJECT_MEMORY.md`.
 - Reorder now calls atomic Supabase RPC `reorder_projects`; SQL definition is in `supabase/reorder_projects.sql` and must be applied in Supabase SQL Editor before live reorder works.
+- Bundle optimization: `vite.config.js` splits React, Framer Motion, and Supabase into separate chunks. Verified production output: largest chunk 216.19 kB; >500 kB warning removed. `npm run lint`, `npm test`, `npm run build`, and `git diff --check` passed; independent review found no concrete regression.
+- Bundle optimization is local and uncommitted; do not push without user request because pushing `main` triggers Vercel deployment.
 - Project creation treats list refresh failure as a refresh warning after confirmed insert, avoiding a false save-failure message and duplicate retry risk.
 - SQL RPC and live Supabase behavior have not been executed or verified; do not claim live reorder fixed until SQL is applied and tested.
 - No commit or push performed.
