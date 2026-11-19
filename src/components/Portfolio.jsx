@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef, useMemo, memo } from 'react';
+import { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
+import { createPortal } from 'react-dom';
 import AdminPanel from './AdminPanel';
 import { trackEvent } from '../lib/analytics.js';
-import { supabase } from '../lib/supabase.js';
+import { isAdminUser, supabase } from '../lib/supabase.js';
+import { ADMIN_EMAIL } from '../lib/adminAuth.js';
 
 // ========================================================
 // HOOK: Lazy-load saat elemen mendekati layar (IntersectionObserver)
@@ -144,6 +146,13 @@ const PROJECTS_CACHE_KEY = 'portfolio-projects-cache';
 const Portfolio = () => {
     const [activeFilter, setActiveFilter] = useState('all');
     const [selectedItem, setSelectedItem] = useState(null);
+    const [adminUser, setAdminUser] = useState(null);
+    const [authLoading, setAuthLoading] = useState(true);
+    const [loginOpen, setLoginOpen] = useState(false);
+    const [loginEmail, setLoginEmail] = useState(ADMIN_EMAIL);
+    const [loginPassword, setLoginPassword] = useState('');
+    const [authMessage, setAuthMessage] = useState('');
+    const [isLoggingIn, setIsLoggingIn] = useState(false);
     
     // Wadah data
     const [portfolioData, setPortfolioData] = useState([]);
@@ -152,6 +161,27 @@ const Portfolio = () => {
     // STATE: Mode Edit & Deteksi Perubahan Layout
     const [isEditMode, setIsEditMode] = useState(false);
     const [isOrderChanged, setIsOrderChanged] = useState(false);
+
+    useEffect(() => {
+        if (!supabase) {
+            setAuthLoading(false);
+            return undefined;
+        }
+        let isMounted = true;
+        supabase.auth.getSession().then(({ data, error }) => {
+            if (error) console.error('Gagal memeriksa sesi admin:', error);
+            if (isMounted) setAdminUser(isAdminUser(data?.session?.user) ? data.session.user : null);
+        }).finally(() => {
+            if (isMounted) setAuthLoading(false);
+        });
+        const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+            setAdminUser(isAdminUser(session?.user) ? session.user : null);
+        });
+        return () => {
+            isMounted = false;
+            authListener.subscription.unsubscribe();
+        };
+    }, []);
 
     useEffect(() => {
         let isMounted = true;
@@ -198,55 +228,90 @@ const Portfolio = () => {
         return () => { isMounted = false; };
     }, []);
 
-    const handleDelete = async (e, id) => {
-        e.stopPropagation();
-        const pin = window.prompt("⚠️ Masukkan PIN Rahasia untuk MENGHAPUS project ini:");
-        if (pin !== null && pin !== "") {
-            try {
-                const response = await fetch(`${import.meta.env.VITE_API_URL}/projects/${id}`, {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify({ secret_pin: pin })
-                });
-                const result = await response.json();
-                if (result.success) {
-                    alert("✅ " + result.message);
-                    window.location.reload();
-                } else {
-                    alert("❌ " + result.message);
-                }
-            } catch (error) {
-                console.error("Error:", error);
-                alert("Terjadi kesalahan saat menghapus data.");
+    const refreshProjects = useCallback(async () => {
+        if (!supabase) throw new Error('Supabase belum dikonfigurasi.');
+        const { data, error } = await supabase.from('projects').select('*').order('sort_order', { ascending: true });
+        if (error) throw error;
+        if (!Array.isArray(data)) throw new Error('Format data project tidak valid');
+        setPortfolioData(data);
+        window.localStorage.setItem(PROJECTS_CACHE_KEY, JSON.stringify(data));
+    }, []);
+
+    const handleAdminLogin = async (event) => {
+        event.preventDefault();
+        if (!supabase) {
+            setAuthMessage('Supabase belum dikonfigurasi.');
+            return;
+        }
+        setIsLoggingIn(true);
+        setAuthMessage('');
+        try {
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: loginEmail.trim(),
+                password: loginPassword,
+            });
+            if (error) throw error;
+            if (!isAdminUser(data.user)) {
+                await supabase.auth.signOut();
+                throw new Error('Akun ini tidak memiliki akses admin.');
             }
+            setAdminUser(data.user);
+            setLoginPassword('');
+            setLoginOpen(false);
+        } catch (error) {
+            setAuthMessage(error.message || 'Login admin gagal.');
+        } finally {
+            setIsLoggingIn(false);
+        }
+    };
+
+    const handleAdminLogout = async () => {
+        if (!supabase) return;
+        const { error } = await supabase.auth.signOut();
+        if (error) setAuthMessage(error.message);
+        else {
+            setAdminUser(null);
+            setIsEditMode(false);
+            setIsOrderChanged(false);
+        }
+    };
+
+    const handleDelete = async (event, id) => {
+        event.stopPropagation();
+        if (!isAdminUser(adminUser) || !supabase) {
+            setAuthMessage('Login sebagai admin untuk menghapus proyek.');
+            return;
+        }
+        if (!window.confirm('Hapus proyek ini? File media di Cloudinary tidak ikut dihapus.')) return;
+        try {
+            const { error } = await supabase.from('projects').delete().eq('id', id);
+            if (error) throw error;
+            const updated = portfolioData.filter((item) => item.id !== id);
+            setPortfolioData(updated);
+            window.localStorage.setItem(PROJECTS_CACHE_KEY, JSON.stringify(updated));
+        } catch (error) {
+            console.error('Gagal menghapus proyek:', error);
+            setAuthMessage(`Gagal menghapus proyek: ${error.message}`);
         }
     };
 
     const handleSaveOrder = async () => {
-        const pin = window.prompt("⚠️ Masukkan PIN Rahasia untuk MENYIMPAN susunan layout baru:");
-        if (pin !== null && pin !== "") {
-            const reorderedItems = portfolioData.map((item, index) => ({
-                id: item.id,
-                sort_order: index + 1
-            }));
-            try {
-                const response = await fetch(`${import.meta.env.VITE_API_URL}/projects/reorder`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify({ secret_pin: pin, items: reorderedItems })
-                });
-                const result = await response.json();
-                if (result.success) {
-                    alert("✅ " + result.message);
-                    setIsOrderChanged(false); 
-                    setIsEditMode(false);
-                } else {
-                    alert("❌ " + result.message);
-                }
-            } catch (error) {
-                console.error("Error:", error);
-                alert("Terjadi kesalahan saat menyimpan susunan.");
-            }
+        if (!isAdminUser(adminUser) || !supabase) {
+            setAuthMessage('Login sebagai admin untuk menyimpan urutan.');
+            return;
+        }
+        try {
+            const { error } = await supabase.rpc('reorder_projects', {
+                project_order: portfolioData.map((item, index) => ({ id: item.id, sort_order: index + 1 })),
+            });
+            if (error) throw error;
+            await refreshProjects();
+            setIsOrderChanged(false);
+            setIsEditMode(false);
+            setAuthMessage('Urutan proyek berhasil disimpan.');
+        } catch (error) {
+            console.error('Gagal menyimpan susunan:', error);
+            setAuthMessage(`Gagal menyimpan susunan: ${error.message}`);
         }
     };
 
@@ -280,15 +345,42 @@ const Portfolio = () => {
                             <button onClick={() => { setActiveFilter('motion'); trackEvent('project_filter', { filter_name: 'motion' }); }} className={`px-6 py-3 rounded-full backdrop-blur-xl text-sm font-bold transition-all duration-300 hover:scale-105 active:scale-95 border ${activeFilter === 'motion' ? 'bg-white/80 border-white text-indigo-700 shadow-[0_8px_32px_rgba(255,255,255,0.6)]' : 'bg-white/30 border-white/50 text-slate-700 hover:bg-white/60 hover:shadow-[0_4px_20px_rgba(255,255,255,0.4)]'}`}>Motion Grafis</button>
                             <button onClick={() => { setActiveFilter('all'); trackEvent('project_filter', { filter_name: 'all' }); }} className={`px-6 py-3 rounded-full backdrop-blur-xl text-sm font-bold transition-all duration-300 hover:scale-105 active:scale-95 border ${activeFilter === 'all' ? 'bg-white/80 border-white text-indigo-700 shadow-[0_8px_32px_rgba(255,255,255,0.6)]' : 'bg-white/30 border-white/50 text-slate-700 hover:bg-white/60 hover:shadow-[0_4px_20px_rgba(255,255,255,0.4)]'}`}>Semua</button>
                             
-                            <AdminPanel onProjectAdded={() => window.location.reload()} />
-
-                            <button onClick={toggleEditMode} className={`px-6 py-3 rounded-full text-sm font-bold transition-all duration-300 hover:scale-105 active:scale-95 border-2 flex items-center gap-2 ml-2 ${isEditMode ? 'border-amber-500 bg-amber-500 text-white shadow-md shadow-amber-500/30' : 'border-slate-300 bg-transparent text-slate-600 hover:bg-slate-100'}`}>
-                                <i className={`ph-bold ${isEditMode ? 'ph-x' : 'ph-arrows-out-cardinal'} text-lg`}></i>
-                                <span>{isEditMode ? 'Tutup Edit' : 'Edit Layout'}</span>
-                            </button>
+                            {adminUser ? (
+                                <>
+                                    <AdminPanel user={adminUser} onProjectAdded={refreshProjects} />
+                                    <button
+                                        type="button"
+                                        onClick={handleAdminLogout}
+                                        className="group inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/45 px-5 py-3 text-sm font-bold text-slate-600 shadow-sm backdrop-blur-xl transition-all duration-300 hover:scale-105 hover:border-rose-200 hover:bg-rose-50/90 hover:text-rose-600 hover:shadow-[0_0_22px_rgba(244,63,94,0.28)] active:scale-95"
+                                    >
+                                        <i className="ph-bold ph-sign-out text-lg transition-transform duration-300 group-hover:translate-x-0.5"></i>
+                                        <span>Logout</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={toggleEditMode}
+                                        className={`group inline-flex items-center gap-2 rounded-full border px-5 py-3 text-sm font-bold backdrop-blur-xl transition-all duration-300 hover:scale-105 active:scale-95 ${isEditMode
+                                                                                    ? 'border-amber-300 bg-amber-100/90 text-amber-700 shadow-[0_8px_24px_rgba(245,158,11,0.14)] hover:bg-amber-200/90 hover:shadow-[0_4px_20px_rgba(245,158,11,0.4)]'
+                                            : 'border-white/60 bg-white/45 text-slate-600 shadow-sm hover:border-indigo-200 hover:bg-indigo-50/90 hover:text-indigo-700 hover:shadow-[0_4px_20px_rgba(255,255,255,0.4)]'}`}
+                                    >
+                                        <i className={`ph-bold ${isEditMode ? 'ph-x' : 'ph-arrows-out-cardinal'} text-lg transition-transform duration-300 group-hover:scale-105`}></i>
+                                        <span>{isEditMode ? 'Tutup Edit' : 'Edit Layout'}</span>
+                                    </button>
+                                </>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => { setAuthMessage(''); setLoginOpen(true); }}
+                                    disabled={authLoading}
+                                    className="relative z-50 cursor-pointer px-6 py-3 rounded-full text-sm font-bold transition-all duration-300 hover:scale-105 active:scale-95 border-2 border-indigo-600 bg-indigo-600 text-white hover:bg-white hover:text-indigo-600 shadow-md hover:shadow-[0_8px_25px_rgba(99,102,241,0.3)] flex items-center gap-2 ml-2 disabled:opacity-60 disabled:hover:scale-100"
+                                >
+                                    <i className="ph-bold ph-lock-key text-lg"></i>
+                                    <span>{authLoading ? 'Memeriksa...' : 'Admin Login'}</span>
+                                </button>
+                            )}
 
                             <AnimatePresence>
-                                {isOrderChanged && isEditMode && (
+                                {adminUser && isOrderChanged && isEditMode && (
                                     <motion.button 
                                         initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}
                                         onClick={handleSaveOrder} 
@@ -366,6 +458,55 @@ const Portfolio = () => {
                     </div>
                 </div>
             </section>
+
+            {typeof document !== 'undefined' && createPortal(
+                <AnimatePresence>
+                    {loginOpen && (
+                        <motion.div
+                            key="admin-login-overlay"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="fixed inset-0 z-[1000000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+                            onClick={() => setLoginOpen(false)}
+                        >
+                            <motion.div
+                                key="admin-login-modal"
+                                initial={{ scale: 0.8, opacity: 0, y: 30 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.8, opacity: 0, y: 30 }}
+                                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                                onClick={(event) => event.stopPropagation()}
+                                className="bg-white rounded-3xl p-5 md:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl relative"
+                            >
+                                <button type="button" onClick={() => setLoginOpen(false)} className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 rounded-full transition-colors z-10" aria-label="Tutup login">
+                                    <i className="ph-bold ph-x text-sm"></i>
+                                </button>
+                                <h3 className="text-lg font-black text-slate-800 mb-1 flex items-center gap-2">
+                                    <i className="ph-fill ph-user-circle text-indigo-600"></i> Admin Login
+                                </h3>
+                                <p className="text-xs text-slate-500 mb-5">Masuk untuk mengelola proyek portofolio.</p>
+                                <form onSubmit={handleAdminLogin} className="space-y-3">
+                                    <div>
+                                        <label htmlFor="admin-login-email" className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Email</label>
+                                        <input id="admin-login-email" type="email" autoComplete="username" required value={loginEmail} onChange={(event) => setLoginEmail(event.target.value)} className="w-full px-3 py-2.5 text-sm text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-indigo-500" />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="admin-login-password" className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Password</label>
+                                        <input id="admin-login-password" type="password" autoComplete="current-password" required value={loginPassword} onChange={(event) => setLoginPassword(event.target.value)} className="w-full px-3 py-2.5 text-sm text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-indigo-500" />
+                                    </div>
+                                    {authMessage && <p role="alert" className="text-xs font-bold text-rose-600 bg-rose-50 rounded-lg px-3 py-2">{authMessage}</p>}
+                                    <button type="submit" disabled={isLoggingIn} className="w-full py-2.5 mt-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-lg transition-all flex justify-center items-center gap-2 disabled:bg-slate-400">
+                                        {isLoggingIn ? <><i className="ph-bold ph-spinner animate-spin"></i> Memeriksa...</> : <><i className="ph-bold ph-sign-in"></i> Masuk</>}
+                                    </button>
+                                </form>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>,
+                document.body
+            )}
 
             {/* MODAL ZOOM GAMBAR NORMAL */}
             <AnimatePresence>

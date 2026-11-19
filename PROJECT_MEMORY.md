@@ -237,7 +237,18 @@ Date: 2026-11-18
 - Supabase `public.projects` table was created manually by the user with read-only public RLS policy.
 - Added `@supabase/supabase-js` and `src/lib/supabase.js` client using `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
 - Portfolio list now reads ordered project metadata from Supabase and retains localStorage cache/fallback.
-- Admin writes (create/delete/reorder) still use Laravel API; Laravel and Aiven must remain active.
+- Admin writes (create/delete/reorder) now use Supabase Auth + `public.projects`; Cloudinary upload stays direct from browser. Laravel API calls removed from frontend handlers; keep Laravel/Aiven active until live admin CRUD and read parity verified.
+- Admin UI uses `absyalsatria20@gmail.com` as frontend visibility check; database RLS policies remain authoritative. Admin user account and policies configured manually by user in Supabase; no secret keys in frontend.
+- Data counts reported by user matched at 40 rows each; row-by-row contents not independently verified.
+- Added `src/lib/adminAuth.js` and Node test `src/lib/adminAuth.test.js`; added `npm test` script.
+- Verification after changes: `npm run lint`, `npm run build`, `npm test` (2 passed), `git diff --check` passed. Build emits existing large-chunk advisory.
+- Not verified against live Supabase: login, insert, delete, reorder, RLS, Cloudinary upload. Do not deploy/retire Laravel until these are exercised.
+- Changed files: `package.json`, `src/components/AdminPanel.jsx`, `src/components/Portfolio.jsx`, `src/lib/supabase.js`, `src/lib/adminAuth.js`, `src/lib/adminAuth.test.js`, `PROJECT_MEMORY.md`.
+- Reorder now calls atomic Supabase RPC `reorder_projects`; SQL definition is in `supabase/reorder_projects.sql` and must be applied in Supabase SQL Editor before live reorder works.
+- Project creation treats list refresh failure as a refresh warning after confirmed insert, avoiding a false save-failure message and duplicate retry risk.
+- SQL RPC and live Supabase behavior have not been executed or verified; do not claim live reorder fixed until SQL is applied and tested.
+- No commit or push performed.
+- Current verification below replaces initial migration pending status for frontend scaffolding only; live behavior remains pending.
 - `.env.example` documents frontend variables; real Supabase credentials must be set locally and in Vercel, never commit `.env`.
 - Verification: `npm run lint`, `npm run build`, and `git diff --check` passed.
 - Live Supabase connectivity not tested because project URL/key not configured here; data migration and admin-auth migration remain pending.
