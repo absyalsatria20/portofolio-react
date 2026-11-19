@@ -229,3 +229,17 @@ At last check:
 - `main` was pushed to `origin/main` at `0293358`.
 - Backup file remains untracked locally.
 - `PROJECT_MEMORY.md` and `VIDEO-THUMBNAIL-OPTIMIZATION-PLAN.md` are local documentation files unless separately committed.
+
+## Supabase Migration — Initial Read Path
+
+Date: 2026-11-18
+
+- Supabase `public.projects` table was created manually by the user with read-only public RLS policy.
+- Added `@supabase/supabase-js` and `src/lib/supabase.js` client using `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+- Portfolio list now reads ordered project metadata from Supabase and retains localStorage cache/fallback.
+- Admin writes (create/delete/reorder) still use Laravel API; Laravel and Aiven must remain active.
+- `.env.example` documents frontend variables; real Supabase credentials must be set locally and in Vercel, never commit `.env`.
+- Verification: `npm run lint`, `npm run build`, and `git diff --check` passed.
+- Live Supabase connectivity not tested because project URL/key not configured here; data migration and admin-auth migration remain pending.
+- Changed files: `.env.example`, `package.json`, `package-lock.json`, `src/lib/supabase.js`, `src/components/Portfolio.jsx`, `PROJECT_MEMORY.md`.
+- No commit or push performed.

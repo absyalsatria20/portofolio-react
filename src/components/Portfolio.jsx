@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, memo } from 'react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import AdminPanel from './AdminPanel';
 import { trackEvent } from '../lib/analytics.js';
+import { supabase } from '../lib/supabase.js';
 
 // ========================================================
 // HOOK: Lazy-load saat elemen mendekati layar (IntersectionObserver)
@@ -153,6 +154,7 @@ const Portfolio = () => {
     const [isOrderChanged, setIsOrderChanged] = useState(false);
 
     useEffect(() => {
+        let isMounted = true;
         let hasCachedData = false;
 
         try {
@@ -170,21 +172,30 @@ const Portfolio = () => {
             window.localStorage.removeItem(PROJECTS_CACHE_KEY);
         }
 
-        fetch(`${import.meta.env.VITE_API_URL}/projects`)
-            .then(response => {
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                return response.json();
-            })
-            .then(data => {
+        if (!supabase) {
+            console.error('Supabase belum dikonfigurasi. Isi VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY.');
+            if (!hasCachedData) setIsLoading(false);
+            return () => { isMounted = false; };
+        }
+
+        supabase
+            .from('projects')
+            .select('*')
+            .order('sort_order', { ascending: true })
+            .then(({ data, error }) => {
+                if (error) throw error;
                 if (!Array.isArray(data)) throw new Error('Format data project tidak valid');
+                if (!isMounted) return;
                 setPortfolioData(data);
                 window.localStorage.setItem(PROJECTS_CACHE_KEY, JSON.stringify(data));
                 setIsLoading(false);
             })
             .catch(error => {
-                console.error("Gagal menarik data:", error);
-                if (!hasCachedData) setIsLoading(false);
+                console.error("Gagal menarik data dari Supabase:", error);
+                if (isMounted && !hasCachedData) setIsLoading(false);
             });
+
+        return () => { isMounted = false; };
     }, []);
 
     const handleDelete = async (e, id) => {
