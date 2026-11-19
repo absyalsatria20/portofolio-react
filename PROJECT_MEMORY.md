@@ -247,6 +247,10 @@ Date: 2026-11-18
 - Reorder now calls atomic Supabase RPC `reorder_projects`; SQL definition is in `supabase/reorder_projects.sql` and must be applied in Supabase SQL Editor before live reorder works.
 - Bundle optimization: `vite.config.js` splits React, Framer Motion, and Supabase into separate chunks. Verified production output: largest chunk 216.19 kB; >500 kB warning removed. `npm run lint`, `npm test`, `npm run build`, and `git diff --check` passed; independent review found no concrete regression.
 - Bundle optimization is local and uncommitted; do not push without user request because pushing `main` triggers Vercel deployment.
+- Portfolio loading UX now uses in-section skeleton cards instead of a centered spinner; cached projects remain visible during refresh, and Supabase failures expose retry feedback.
+- Removed image and video load-triggered fade-in behavior; media cards render without fade transitions. Skeleton, cache/retry UX, and hover transforms remain.
+- Loading UX verification: `npm run lint`, `npm test` (2 passed), `npm run build`, and `git diff --check` passed. Browser behavior not yet exercised.
+- Loading UX changes remain uncommitted and unpushed.
 - Project creation treats list refresh failure as a refresh warning after confirmed insert, avoiding a false save-failure message and duplicate retry risk.
 - SQL RPC and live Supabase behavior have not been executed or verified; do not claim live reorder fixed until SQL is applied and tested.
 - No commit or push performed.

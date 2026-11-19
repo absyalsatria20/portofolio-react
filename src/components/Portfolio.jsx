@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, memo, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, memo, useCallback } from 'react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import AdminPanel from './AdminPanel';
@@ -7,46 +7,22 @@ import { isAdminUser, supabase } from '../lib/supabase.js';
 import { ADMIN_EMAIL } from '../lib/adminAuth.js';
 
 // ========================================================
-// HOOK: Lazy-load saat elemen mendekati layar (IntersectionObserver)
-// Tujuannya supaya HP tidak langsung mengunduh SEMUA gambar & video
-// sekaligus saat halaman baru dibuka — hanya yang mendekati area
-// layar (viewport) yang mulai dimuat.
-// ========================================================
-function useInViewOnce(rootMargin = '300px') {
-    const ref = useRef(null);
-    const [isInView, setIsInView] = useState(false);
-
-    useEffect(() => {
-        if (!ref.current || isInView) return;
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                if (entry.isIntersecting) {
-                    setIsInView(true);
-                    observer.disconnect();
-                }
-            },
-            { rootMargin }
-        );
-        observer.observe(ref.current);
-        return () => observer.disconnect();
-    }, [isInView, rootMargin]);
-
-    return [ref, isInView];
-}
-
-// ========================================================
 // KOMPONEN KARTU — dipisah dari Portfolio + dibungkus memo()
-// - memo(): kartu lain tidak ikut render ulang saat modal, filter,
-//   atau mode edit berubah di komponen induk.
-// - useInViewOnce: <img>/<video> baru dipasang ke DOM (dan baru
-//   mulai diunduh browser) saat kartu mendekati area layar.
+// memo(): kartu lain tidak ikut render ulang saat modal atau filter berubah.
 // ========================================================
 const PortfolioCard = memo(function PortfolioCard({ item, onSelect }) {
-    const [ref, isInView] = useInViewOnce('300px');
+    const [failedMediaKey, setFailedMediaKey] = useState('');
+    const mediaKey = `${item.type}:${item.src}`;
+    const hasMediaError = failedMediaKey === mediaKey;
+
+    useLayoutEffect(() => {
+        setFailedMediaKey('');
+    }, [mediaKey]);
+
+    const handleMediaError = () => setFailedMediaKey(mediaKey);
 
     return (
         <div
-            ref={ref}
             onClick={() => {
                 trackEvent('project_open', {
                     project_type: item.type,
@@ -57,15 +33,17 @@ const PortfolioCard = memo(function PortfolioCard({ item, onSelect }) {
             // ⚡ OPTIMASI CSS HOVER: transition-all diganti transition-transform, hapus animasi shadow yang berat
             className="group relative overflow-hidden rounded-3xl cursor-pointer bg-slate-50/95 border border-white/60 shadow-[0_8px_30px_rgba(0,0,0,0.08)] hover:-translate-y-2 transform-gpu transition-transform duration-300 w-full hover:ring-2 hover:ring-indigo-400/50"
         >
-            {!isInView ? (
-                // Placeholder ringan selagi kartu belum masuk area layar
-                <div className="w-full h-48 md:h-64 bg-slate-200/60 animate-pulse" />
+            {hasMediaError ? (
+                <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 bg-slate-100 text-slate-400" role="img" aria-label="Media proyek gagal dimuat">
+                    <i className="ph-bold ph-image-broken text-3xl"></i>
+                    <span className="text-xs font-semibold">Media tidak dapat dimuat</span>
+                </div>
             ) : item.type === 'image' ? (
                 <img
                     src={item.src}
                     decoding="async"
-                    // ⚡ Durasi dipercepat jadi 300ms agar lebih responsif
-                    className="block w-full h-auto transform-gpu transition-transform duration-300 group-hover:scale-105"
+                    onError={handleMediaError}
+                    className="block w-full h-auto transform-gpu transition-transform duration-500 group-hover:scale-105"
                     alt="Portfolio"
                 />
             ) : (
@@ -75,8 +53,8 @@ const PortfolioCard = memo(function PortfolioCard({ item, onSelect }) {
                         preload="metadata"
                         muted
                         playsInline
-                        // ⚡ Durasi dipercepat jadi 300ms
-                        className="block w-full h-auto object-cover pointer-events-none transform-gpu transition-transform duration-300 group-hover:scale-105"
+                        onError={handleMediaError}
+                        className="block w-full h-auto object-cover pointer-events-none transform-gpu transition-transform duration-500 group-hover:scale-105"
                     ></video>
                     <div className="absolute inset-0 flex items-center justify-center z-20 transition-transform duration-300 group-hover:scale-105 pointer-events-none transform-gpu">
                         {/* ⚡ Tombol Play disederhanakan animasinya */}
@@ -145,6 +123,55 @@ const PROJECTS_CACHE_KEY = 'portfolio-projects-cache';
 
 const Portfolio = () => {
     const [activeFilter, setActiveFilter] = useState('all');
+    const [confirmation, setConfirmation] = useState(null);
+    const [isConfirming, setIsConfirming] = useState(false);
+    const confirmationDialogRef = useRef(null);
+    const confirmationTriggerRef = useRef(null);
+    const editLayoutButtonRef = useRef(null);
+
+    useEffect(() => {
+        if (!confirmation) {
+            const trigger = confirmationTriggerRef.current;
+            confirmationTriggerRef.current = null;
+            if (trigger?.isConnected) trigger.focus();
+            else editLayoutButtonRef.current?.focus();
+            return undefined;
+        }
+
+        const dialog = confirmationDialogRef.current;
+        const initialFocus = dialog?.querySelector('button:not(:disabled)') || dialog;
+        initialFocus?.focus();
+
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape' && !isConfirming) {
+                setConfirmation(null);
+                return;
+            }
+            if (event.key !== 'Tab' || !dialog) return;
+            const focusable = dialog.querySelectorAll('button:not(:disabled)');
+            if (!focusable.length) {
+                event.preventDefault();
+                dialog.focus();
+                return;
+            }
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            const focusOutsideDialog = !dialog.contains(document.activeElement);
+            if (focusOutsideDialog) {
+                event.preventDefault();
+                (event.shiftKey ? last : first).focus();
+            } else if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [confirmation, isConfirming]);
     const [selectedItem, setSelectedItem] = useState(null);
     const [adminUser, setAdminUser] = useState(null);
     const [authLoading, setAuthLoading] = useState(true);
@@ -157,6 +184,9 @@ const Portfolio = () => {
     // Wadah data
     const [portfolioData, setPortfolioData] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [projectsError, setProjectsError] = useState('');
+    const [projectsNotice, setProjectsNotice] = useState('');
+    const [loadAttempt, setLoadAttempt] = useState(0);
     
     // STATE: Mode Edit & Deteksi Perubahan Layout
     const [isEditMode, setIsEditMode] = useState(false);
@@ -198,13 +228,27 @@ const Portfolio = () => {
                 }
             }
         } catch (error) {
-            console.error("Gagal membaca cache project:", error);
-            window.localStorage.removeItem(PROJECTS_CACHE_KEY);
+            console.error('Gagal membaca cache project:', error);
+            try {
+                window.localStorage.removeItem(PROJECTS_CACHE_KEY);
+            } catch (removeError) {
+                console.error('Gagal menghapus cache project rusak:', removeError);
+            }
         }
 
+        if (!hasCachedData) setIsLoading(true);
+        setProjectsError('');
+        setProjectsNotice('');
+
         if (!supabase) {
-            console.error('Supabase belum dikonfigurasi. Isi VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY.');
-            if (!hasCachedData) setIsLoading(false);
+            const message = 'Supabase belum dikonfigurasi. Data yang tampil berasal dari cache lokal.';
+            console.error(message);
+            if (hasCachedData) {
+                setProjectsNotice(message);
+            } else {
+                setProjectsError(message);
+                setIsLoading(false);
+            }
             return () => { isMounted = false; };
         }
 
@@ -217,16 +261,25 @@ const Portfolio = () => {
                 if (!Array.isArray(data)) throw new Error('Format data project tidak valid');
                 if (!isMounted) return;
                 setPortfolioData(data);
-                window.localStorage.setItem(PROJECTS_CACHE_KEY, JSON.stringify(data));
+                try {
+                    window.localStorage.setItem(PROJECTS_CACHE_KEY, JSON.stringify(data));
+                } catch (cacheError) {
+                    console.error('Data portofolio berhasil dimuat, tetapi cache gagal disimpan:', cacheError);
+                }
+                setProjectsError('');
                 setIsLoading(false);
             })
             .catch(error => {
-                console.error("Gagal menarik data dari Supabase:", error);
-                if (isMounted && !hasCachedData) setIsLoading(false);
+                console.error('Gagal menarik data dari Supabase:', error);
+                if (!isMounted) return;
+                const message = 'Pembaruan data portofolio gagal. Periksa koneksi, lalu coba lagi.';
+                if (hasCachedData) setProjectsNotice(message);
+                else setProjectsError(message);
+                setIsLoading(false);
             });
 
         return () => { isMounted = false; };
-    }, []);
+    }, [loadAttempt]);
 
     const refreshProjects = useCallback(async () => {
         if (!supabase) throw new Error('Supabase belum dikonfigurasi.');
@@ -234,7 +287,11 @@ const Portfolio = () => {
         if (error) throw error;
         if (!Array.isArray(data)) throw new Error('Format data project tidak valid');
         setPortfolioData(data);
-        window.localStorage.setItem(PROJECTS_CACHE_KEY, JSON.stringify(data));
+        try {
+            window.localStorage.setItem(PROJECTS_CACHE_KEY, JSON.stringify(data));
+        } catch (cacheError) {
+            console.error('Daftar project berhasil dimuat, tetapi cache lokal gagal diperbarui:', cacheError);
+        }
     }, []);
 
     const handleAdminLogin = async (event) => {
@@ -276,42 +333,76 @@ const Portfolio = () => {
         }
     };
 
-    const handleDelete = async (event, id) => {
+    const handleDelete = (event, id) => {
         event.stopPropagation();
         if (!isAdminUser(adminUser) || !supabase) {
             setAuthMessage('Login sebagai admin untuk menghapus proyek.');
             return;
         }
-        if (!window.confirm('Hapus proyek ini? File media di Cloudinary tidak ikut dihapus.')) return;
-        try {
-            const { error } = await supabase.from('projects').delete().eq('id', id);
-            if (error) throw error;
-            const updated = portfolioData.filter((item) => item.id !== id);
-            setPortfolioData(updated);
-            window.localStorage.setItem(PROJECTS_CACHE_KEY, JSON.stringify(updated));
-        } catch (error) {
-            console.error('Gagal menghapus proyek:', error);
-            setAuthMessage(`Gagal menghapus proyek: ${error.message}`);
-        }
+        confirmationTriggerRef.current = event.currentTarget;
+        setConfirmation({ type: 'delete', projectId: id });
     };
 
-    const handleSaveOrder = async () => {
+    const handleSaveOrder = (event) => {
+        confirmationTriggerRef.current = event.currentTarget;
+        setConfirmation({ type: 'save-order' });
+    };
+
+    const handleConfirmAction = async () => {
+        if (!confirmation || isConfirming) return;
         if (!isAdminUser(adminUser) || !supabase) {
-            setAuthMessage('Login sebagai admin untuk menyimpan urutan.');
+            setAuthMessage('Login sebagai admin untuk melakukan tindakan ini.');
+            setConfirmation(null);
             return;
         }
+
+        if (confirmation.type !== 'delete' && confirmation.type !== 'save-order') {
+            setConfirmation(null);
+            return;
+        }
+
+        setIsConfirming(true);
         try {
-            const { error } = await supabase.rpc('reorder_projects', {
-                project_order: portfolioData.map((item, index) => ({ id: item.id, sort_order: index + 1 })),
-            });
-            if (error) throw error;
-            await refreshProjects();
-            setIsOrderChanged(false);
-            setIsEditMode(false);
-            setAuthMessage('Urutan proyek berhasil disimpan.');
+            if (confirmation.type === 'delete') {
+                const { error } = await supabase.from('projects').delete().eq('id', confirmation.projectId);
+                if (error) throw error;
+                const updated = portfolioData.filter((item) => item.id !== confirmation.projectId);
+                setPortfolioData(updated);
+                let cacheWarning = '';
+                try {
+                    window.localStorage.setItem(PROJECTS_CACHE_KEY, JSON.stringify(updated));
+                } catch (cacheError) {
+                    console.error('Proyek terhapus, tetapi cache lokal gagal diperbarui:', cacheError);
+                    try {
+                        window.localStorage.removeItem(PROJECTS_CACHE_KEY);
+                    } catch (removeError) {
+                        console.error('Cache project lama tidak dapat dibersihkan:', removeError);
+                    }
+                    cacheWarning = ' Cache lokal gagal diperbarui; muat ulang halaman.';
+                }
+                setAuthMessage(`Proyek berhasil dihapus. File media di Cloudinary tidak ikut dihapus.${cacheWarning}`);
+            } else {
+                const { error } = await supabase.rpc('reorder_projects', {
+                    project_order: portfolioData.map((item, index) => ({ id: item.id, sort_order: index + 1 })),
+                });
+                if (error) throw error;
+                setIsOrderChanged(false);
+                setIsEditMode(false);
+                setAuthMessage('Urutan proyek berhasil disimpan.');
+                setConfirmation(null);
+                try {
+                    await refreshProjects();
+                } catch (refreshError) {
+                    console.error('Urutan tersimpan, tetapi daftar gagal dimuat ulang:', refreshError);
+                    setAuthMessage('Urutan berhasil disimpan, tetapi daftar gagal dimuat ulang. Segarkan halaman.');
+                }
+            }
+            setConfirmation(null);
         } catch (error) {
-            console.error('Gagal menyimpan susunan:', error);
-            setAuthMessage(`Gagal menyimpan susunan: ${error.message}`);
+            console.error('Gagal menjalankan tindakan admin:', error);
+            setConfirmation((current) => current ? { ...current, error: error.message } : current);
+        } finally {
+            setIsConfirming(false);
         }
     };
 
@@ -357,6 +448,7 @@ const Portfolio = () => {
                                         <span>Logout</span>
                                     </button>
                                     <button
+                                        ref={editLayoutButtonRef}
                                         type="button"
                                         onClick={toggleEditMode}
                                         className={`group inline-flex items-center gap-2 rounded-full border px-5 py-3 text-sm font-bold backdrop-blur-xl transition-all duration-300 hover:scale-105 active:scale-95 ${isEditMode
@@ -383,7 +475,10 @@ const Portfolio = () => {
                                 {adminUser && isOrderChanged && isEditMode && (
                                     <motion.button 
                                         initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}
-                                        onClick={handleSaveOrder} 
+                                        onClick={(event) => {
+                                            confirmationTriggerRef.current = event.currentTarget;
+                                            handleSaveOrder(event);
+                                        }}
                                         className="px-6 py-3 rounded-full text-sm font-bold transition-all duration-300 hover:scale-105 active:scale-95 border-2 border-emerald-500 bg-emerald-500 text-white hover:bg-white hover:text-emerald-600 shadow-md shadow-emerald-500/30 flex items-center gap-2 ml-2 animate-pulse"
                                     >
                                         <i className="ph-bold ph-floppy-disk text-lg"></i>
@@ -393,9 +488,48 @@ const Portfolio = () => {
                             </AnimatePresence>
                         </div>
 
+                        {projectsNotice && portfolioData.length > 0 && (
+                            <div role="status" className="mb-6 flex flex-col items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-left text-sm text-amber-800 sm:flex-row">
+                                <span>{projectsNotice}</span>
+                                <button
+                                    type="button"
+                                    onClick={() => setLoadAttempt((attempt) => attempt + 1)}
+                                    className="min-h-10 shrink-0 rounded-full border border-amber-300 bg-white px-4 py-2 text-xs font-bold text-amber-800 transition-colors hover:bg-amber-100"
+                                >
+                                    Coba Lagi
+                                </button>
+                            </div>
+                        )}
                         {isLoading ? (
-                            <div className="flex justify-center items-center py-20">
-                                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+                            <div aria-label="Memuat proyek portofolio" aria-busy="true" className="grid grid-cols-2 gap-4 lg:grid-cols-3 lg:gap-6 items-start">
+                                {[0, 1, 2].map((column) => (
+                                    <div key={column} className={`flex flex-col gap-4 lg:gap-6 ${column === 2 ? 'hidden lg:flex' : ''}`}>
+                                        {[0, 1, 2].map((card) => (
+                                            <div key={card} className="overflow-hidden rounded-3xl border border-white/60 bg-white/70 shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
+                                                <div className={`animate-pulse bg-slate-200/70 ${card % 2 === 0 ? 'aspect-[4/3]' : 'aspect-[3/4]'}`} />
+                                                <div className="space-y-2 p-4">
+                                                    <div className="h-3 w-2/5 animate-pulse rounded-full bg-slate-200/80" />
+                                                    <div className="h-3 w-3/4 animate-pulse rounded-full bg-slate-200/60" />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : projectsError && portfolioData.length === 0 ? (
+                            <div role="alert" className="mx-auto max-w-lg rounded-3xl border border-rose-100 bg-white/85 p-8 text-center shadow-lg backdrop-blur-sm">
+                                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-500">
+                                    <i className="ph-bold ph-wifi-x text-2xl"></i>
+                                </div>
+                                <h3 className="mb-2 text-lg font-black text-slate-800">Portofolio belum bisa dimuat</h3>
+                                <p className="mb-5 text-sm leading-relaxed text-slate-500">{projectsError}</p>
+                                <button
+                                    type="button"
+                                    onClick={() => { if (portfolioData.length === 0) setIsLoading(true); setLoadAttempt((attempt) => attempt + 1); }}
+                                    className="min-h-11 rounded-full bg-indigo-600 px-6 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:scale-105 hover:bg-indigo-700 active:scale-95"
+                                >
+                                    Coba Lagi
+                                </button>
                             </div>
                         ) : isEditMode && activeFilter === 'all' ? (
                             
@@ -458,6 +592,73 @@ const Portfolio = () => {
                     </div>
                 </div>
             </section>
+
+            {typeof document !== 'undefined' && createPortal(
+                <AnimatePresence>
+                    {confirmation && (
+                        <motion.div
+                            key="admin-confirmation-overlay"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="fixed inset-0 z-[1000001] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+                            onClick={() => !isConfirming && setConfirmation(null)}
+                        >
+                            <motion.div
+                                initial={{ scale: 0.92, opacity: 0, y: 18 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.92, opacity: 0, y: 18 }}
+                                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                                ref={confirmationDialogRef}
+                                tabIndex={-1}
+                                role={confirmation.type === 'delete' ? 'alertdialog' : 'dialog'}
+                                aria-modal="true"
+                                aria-labelledby="admin-confirmation-title"
+                                aria-describedby="admin-confirmation-description"
+                                onClick={(event) => event.stopPropagation()}
+                                className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
+                            >
+                                <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-2xl ${confirmation.type === 'delete' ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                    <i className={`ph-bold ${confirmation.type === 'delete' ? 'ph-trash' : 'ph-floppy-disk'} text-2xl`}></i>
+                                </div>
+                                <h3 id="admin-confirmation-title" className="mb-2 text-lg font-black text-slate-800">
+                                    {confirmation.type === 'delete' ? 'Hapus proyek ini?' : 'Simpan perubahan layout?'}
+                                </h3>
+                                <p id="admin-confirmation-description" className="mb-6 text-sm leading-relaxed text-slate-500">
+                                    {confirmation.type === 'delete'
+                                        ? 'Data proyek akan dihapus dari portofolio. File media di Cloudinary tidak ikut dihapus.'
+                                        : 'Urutan proyek akan diperbarui dan langsung terlihat oleh pengunjung.'}
+                                </p>
+                                {confirmation.error && (
+                                    <p role="alert" className="mb-4 rounded-xl bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-600">
+                                        Gagal: {confirmation.error}
+                                    </p>
+                                )}
+                                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                                    <button
+                                        type="button"
+                                        disabled={isConfirming}
+                                        onClick={() => setConfirmation(null)}
+                                        className="min-h-11 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50"
+                                    >
+                                        Batal
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={isConfirming}
+                                        onClick={handleConfirmAction}
+                                        className={`min-h-11 rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:scale-[1.02] active:scale-[0.98] disabled:cursor-wait disabled:opacity-60 ${confirmation.type === 'delete' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}
+                                    >
+                                        {isConfirming ? 'Memproses...' : confirmation.type === 'delete' ? 'Ya, Hapus' : 'Ya, Simpan'}
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>,
+                document.body
+            )}
 
             {typeof document !== 'undefined' && createPortal(
                 <AnimatePresence>
